@@ -1,0 +1,17 @@
+{
+  "name": "Dada Tracker",
+  "short_name": "Dada",
+  "description": "기분·에너지·수면·생리주기를 한 화면에서 기록하고, 그 사이의 관계를 읽어내는 트래커.",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAFAF8",
+  "theme_color": "#B0A0CC",
+  "categories": ["health", "lifestyle", "medical"],
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
