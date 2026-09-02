@@ -48,6 +48,12 @@ export interface GroupSummary {
   count: number
   moodAvg: number | null
   energyAvg: number | null
+  /** 표본표준편차. 값이 하나뿐이면 null입니다. 불확실성 계산에 씁니다. */
+  moodSd: number | null
+  energySd: number | null
+  /** 평균을 낼 때 실제로 쓰인 개수. count는 그 그룹의 전체 일수입니다. */
+  moodCount: number
+  energyCount: number
   mixedRate: number
 }
 
@@ -70,6 +76,15 @@ function round1(v: number): number {
   return Math.round(v * 10) / 10
 }
 
+/** 표본표준편차(n-1). 값이 둘 미만이면 낼 수 없습니다. */
+export function stdev(values: readonly number[]): number | null {
+  if (values.length < 2) return null
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length
+  const variance =
+    values.reduce((sum, v) => sum + (v - mean) * (v - mean), 0) / (values.length - 1)
+  return Math.sqrt(variance)
+}
+
 function summarize(key: string, label: string, entries: readonly Entry[]): GroupSummary {
   const moods = entries.map((e) => e.mood).filter((v): v is NonNullable<typeof v> => v != null)
   const energies = entries.map((e) => e.energy).filter((v): v is NonNullable<typeof v> => v != null)
@@ -80,6 +95,10 @@ function summarize(key: string, label: string, entries: readonly Entry[]): Group
     count: entries.length,
     moodAvg: avg(moods),
     energyAvg: avg(energies),
+    moodSd: stdev(moods),
+    energySd: stdev(energies),
+    moodCount: moods.length,
+    energyCount: energies.length,
     mixedRate:
       mixedCandidates.length === 0
         ? 0

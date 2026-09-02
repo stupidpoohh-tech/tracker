@@ -24,7 +24,23 @@ import type { CyclePhase, PhaseIndex } from './cycle'
 import { PHASE_LABELS } from './cycle'
 import type { Entry, SleepQuality, TagIndex } from './models'
 import { SLEEP_OPTIONS, isMixedState, resolveEntryTagIds, sleepLabel } from './models'
-import { groupBySleep, groupByPhase, groupByWeekday, pearson, type GroupSummary } from './insights'
+import {
+  groupBySleep,
+  groupByPhase,
+  groupByWeekday,
+  pearson,
+  stdev,
+  type GroupSummary,
+} from './insights'
+import {
+  correlationInterval,
+  excludesZero,
+  meanDiffInterval,
+  proportionInterval,
+  rateDiffInterval,
+  zFor,
+  type Interval,
+} from './uncertainty'
 import { objectParticle, subjectParticle, topicParticle, withParticle } from './korean'
 
 // ─── 판정 기준 ────────────────────────────────────────────────────────────────
@@ -53,6 +69,20 @@ const MIN_TAG_OCCURRENCES = 4
  * 합니다. 변화 판정은 지표 고유 단위로 하는 편이 해석 가능합니다.
  */
 const CHANGE_STEP = 1
+
+/** 화면에 보여줄 구간의 신뢰수준. */
+export const CONFIDENCE = 0.95
+
+/**
+ * '반복되는 패턴'이라고 부를 때 쓰는 유의수준.
+ *
+ * 한 번에 스무 개 안팎의 관계를 계산하고 그중 가장 강한 것을 화면에 올립니다.
+ * 스무 개를 동시에 보면 우연히 큰 차이가 하나쯤 나오는 것이 오히려 정상입니다.
+ * 그래서 확정적인 표현을 쓰는 'stable'에만 살펴본 관계 수로 나눈 유의수준
+ * (본페로니 보정)을 요구합니다. 'signal'은 원래 잠정적인 표현이므로 효과
+ * 크기와 표본만 봅니다.
+ */
+const FAMILY_ALPHA = 0.05
 
 /** 기본 분석 창. 직전 같은 길이의 창과 비교합니다. */
 export const DEFAULT_WINDOW_DAYS = 60
@@ -147,8 +177,12 @@ export interface Pattern {
   strength: number
   /** 지표 고유 단위의 차이. 척도는 점, 비율은 0~1, 상관은 계수. */
   delta: number
+  /** delta의 95% 구간. 낼 수 없으면 null입니다. */
+  interval: Interval | null
   sampleSize: number
   window: { start: DateKey; end: DateKey; days: number }
+  /** 이 패턴이 나온 계산에서 함께 살펴본 관계의 수. 다중비교 맥락입니다. */
+  examined: number
   groups: PatternGroup[]
   /** 판단하려면 대략 며칠의 기록이 더 필요한지. 충분하면 null. */
   needed: number | null
@@ -167,6 +201,8 @@ interface Draft {
   strength: number
   sampleSize: number
   usableSample: number
+  /** 신뢰수준에 따른 delta의 구간. 보정된 수준으로도 다시 부릅니다. */
+  interval: (z: number) => Interval | null
   /**
    * 그룹별 최소 표본을 요구할지.
    *
@@ -191,7 +227,11 @@ function percent(value: number): number {
  * 표본과 효과 크기로 상태를 정합니다.
  * 두 축을 분리하는 것이 핵심입니다 — 표본이 적으면 차이가 커도 '신호'일 뿐입니다.
  */
-function judge(draft: Draft, minDelta: number): { status: PatternStatus; needed: number | null } {
+function judge(
+  draft: Draft,
+  minDelta: number,
+  adjustedZ: number,
+): { status: PatternStatus; needed: number | null } {
   const groupsUsable = draft.gateGroups
     ? draft.groups.length >= 2 && draft.groups.every((g) => g.count >= MIN_GROUP)
     : true
@@ -207,16 +247,23 @@ function judge(draft: Draft, minDelta: number): { status: PatternStatus; needed:
 
   if (Math.abs(draft.delta) < minDelta) return { status: 'none', needed: null }
 
+  // 표본이 충분한 데다, 살펴본 관계 수를 감안한 구간이 0을 넘지 않을 때만
+  // '반복되는 패턴'이라고 부릅니다. 표본만으로 확정하면 여러 관계를 동시에 본
+  // 결과 중 우연히 큰 것을 지목하게 됩니다.
   const solid =
     draft.sampleSize >= STABLE_TOTAL &&
-    (!draft.gateGroups || draft.groups.every((g) => g.count >= STABLE_GROUP))
+    (!draft.gateGroups || draft.groups.every((g) => g.count >= STABLE_GROUP)) &&
+    excludesZero(draft.interval(adjustedZ))
   if (solid) return { status: 'stable', needed: null }
 
+  // 표본이 모자란 것과, 표본은 찼는데 차이가 아직 확실하지 않은 것을 구분합니다.
+  // 후자에 "약 1일 더 모으면 됩니다"라고 하면 지키지 못할 약속이 됩니다.
   const byTotal = STABLE_TOTAL - draft.sampleSize
   const byGroup = draft.gateGroups
     ? Math.max(0, ...draft.groups.map((g) => STABLE_GROUP - g.count))
     : 0
-  return { status: 'signal', needed: Math.max(1, byTotal, byGroup) }
+  const short = Math.max(byTotal, byGroup)
+  return { status: 'signal', needed: short > 0 ? short : null }
 }
 
 function minDeltaFor(metric: PatternMetric): number {
@@ -259,6 +306,20 @@ const SCALE_META = {
 
 type ScaleKey = keyof typeof SCALE_META
 
+/** 두 그룹의 평균 차이에 대한 구간. GroupSummary가 표준편차를 갖고 있습니다. */
+function scaleDiffInterval(
+  high: GroupSummary,
+  low: GroupSummary,
+  scale: ScaleKey,
+  z: number,
+): Interval | null {
+  const stats = (g: GroupSummary) =>
+    scale === 'mood'
+      ? { mean: g.moodAvg as number, sd: g.moodSd, n: g.moodCount }
+      : { mean: g.energyAvg as number, sd: g.energySd, n: g.energyCount }
+  return meanDiffInterval(stats(high), stats(low), z)
+}
+
 /** 그룹 중 최고·최저를 뽑아 차이를 냅니다. */
 function extremes(groups: readonly GroupSummary[], metric: 'moodAvg' | 'energyAvg') {
   const usable = groups.filter((g) => g.count > 0 && g[metric] != null)
@@ -292,6 +353,7 @@ function detectSleepScale(entries: readonly Entry[], scale: ScaleKey): Draft | n
       count: g.count,
     })),
     delta: cmp.delta,
+    interval: (z) => scaleDiffInterval(cmp.high, cmp.low, scale, z),
     strength: normalizeStrength(cmp.delta, 'scale'),
     sampleSize: usable.reduce((sum, g) => sum + g.count, 0),
     usableSample: cmp.high.count + cmp.low.count,
@@ -338,6 +400,7 @@ function detectPhaseScale(
       count: g.count,
     })),
     delta: cmp.delta,
+    interval: (z) => scaleDiffInterval(cmp.high, cmp.low, scale, z),
     strength: normalizeStrength(cmp.delta, 'scale'),
     sampleSize: usable.reduce((sum, g) => sum + g.count, 0),
     usableSample: cmp.high.count + cmp.low.count,
@@ -413,6 +476,12 @@ function detectPhaseTags(
           { key: 'out', label: '그 외 기간', value: outRate, count: outPhase.length },
         ],
         delta,
+        interval: (z) =>
+          rateDiffInterval(
+            { rate: inRate, n: inPhase.length },
+            { rate: outRate, n: outPhase.length },
+            z,
+          ),
         strength: normalizeStrength(delta, 'rate'),
         sampleSize: inPhase.length + outPhase.length,
         usableSample: inPhase.length,
@@ -464,6 +533,8 @@ function detectTagScale(entries: readonly Entry[], tagIndex: TagIndex): Draft[] 
     const onAvg = avg(onDays)
     const offAvg = avg(offDays)
     const delta = onAvg - offAvg
+    const onSd = stdev(onDays.map((e) => e.mood as number))
+    const offSd = stdev(offDays.map((e) => e.mood as number))
     const name = tagIndex.byId.get(tagId)?.name ?? tagId
 
     drafts.push({
@@ -481,6 +552,12 @@ function detectTagScale(entries: readonly Entry[], tagIndex: TagIndex): Draft[] 
         { key: 'off', label: '그 외', value: round1(offAvg), count: offDays.length },
       ],
       delta,
+      interval: (z) =>
+        meanDiffInterval(
+          { mean: onAvg, sd: onSd, n: onDays.length },
+          { mean: offAvg, sd: offSd, n: offDays.length },
+          z,
+        ),
       strength: normalizeStrength(delta, 'scale'),
       sampleSize: withMood.length,
       usableSample: onDays.length,
@@ -520,6 +597,7 @@ function detectWeekdayMood(entries: readonly Entry[]): Draft | null {
       count: g.count,
     })),
     delta: cmp.delta,
+    interval: (z) => scaleDiffInterval(cmp.high, cmp.low, 'mood', z),
     strength: normalizeStrength(cmp.delta, 'scale'),
     sampleSize: usable.reduce((sum, g) => sum + g.count, 0),
     usableSample: cmp.high.count + cmp.low.count,
@@ -552,6 +630,7 @@ function detectMoodEnergy(entries: readonly Entry[]): Draft | null {
     metric: 'correlation',
     groups: [{ key: 'all', label: '기분·에너지를 모두 기록한 날', value: r, count: paired.length }],
     delta: r,
+    interval: (z) => correlationInterval(r, paired.length, z),
     strength: normalizeStrength(r, 'correlation'),
     sampleSize: paired.length,
     usableSample: paired.length,
@@ -591,6 +670,7 @@ function detectMixedState(entries: readonly Entry[]): Draft | null {
     ],
     // 기저(0)와의 차이가 아니라 발생률 자체를 신호로 봅니다.
     delta: rate,
+    interval: (z) => proportionInterval(rate, candidates.length, z),
     strength: normalizeStrength(rate, 'rate'),
     sampleSize: candidates.length,
     usableSample: candidates.length,
@@ -633,8 +713,8 @@ function collectDrafts(
   return map
 }
 
-function statusOf(draft: Draft): PatternStatus {
-  return judge(draft, minDeltaFor(draft.metric)).status
+function statusOf(draft: Draft, adjustedZ: number): PatternStatus {
+  return judge(draft, minDeltaFor(draft.metric), adjustedZ).status
 }
 
 /**
@@ -649,10 +729,11 @@ function compareWindows(
   currentStatus: PatternStatus,
   previous: Draft | undefined,
   hasPreviousWindow: boolean,
+  previousZ: number,
 ): PatternChange {
   const visible = (s: PatternStatus): boolean => s === 'signal' || s === 'stable'
   if (!visible(currentStatus)) {
-    if (previous && visible(statusOf(previous))) return 'faded'
+    if (previous && visible(statusOf(previous, previousZ))) return 'faded'
     return 'unknown'
   }
 
@@ -661,7 +742,7 @@ function compareWindows(
   // 과거 창은 있었지만 이 관계를 볼 데이터가 없었습니다.
   if (!previous) return 'unknown'
 
-  const previousStatus = statusOf(previous)
+  const previousStatus = statusOf(previous, previousZ)
   if (previousStatus === 'insufficient') return 'unknown'
   if (previousStatus === 'none') return 'new'
 
@@ -712,9 +793,17 @@ export function buildPatterns(input: PatternInput): Pattern[] {
     ? collectDrafts(previousEntries, input.phaseIndex, input.tagIndex)
     : new Map<string, Draft>()
 
+  // 한 번에 살펴본 관계의 수만큼 유의수준을 나눕니다(본페로니). 스무 개를 보고
+  // 그중 가장 큰 것을 고르면서 각각을 5% 기준으로 판정하면, 우연을 발견이라고
+  // 부르게 됩니다.
+  const examined = Math.max(1, current.size)
+  const adjustedZ = zFor(1 - FAMILY_ALPHA / examined)
+  const shownZ = zFor(CONFIDENCE)
+  const previousZ = zFor(1 - FAMILY_ALPHA / Math.max(1, previous.size))
+
   const patterns: Pattern[] = []
   for (const draft of current.values()) {
-    const { status, needed } = judge(draft, minDeltaFor(draft.metric))
+    const { status, needed } = judge(draft, minDeltaFor(draft.metric), adjustedZ)
     const { title, summary } = draft.describe(status)
     patterns.push({
       id: draft.id,
@@ -723,12 +812,14 @@ export function buildPatterns(input: PatternInput): Pattern[] {
       title,
       summary,
       status,
-      change: compareWindows(draft, status, previous.get(draft.id), hasPreviousWindow),
+      change: compareWindows(draft, status, previous.get(draft.id), hasPreviousWindow, previousZ),
       metric: draft.metric,
       strength: draft.strength,
       delta: draft.delta,
+      interval: draft.interval(shownZ),
       sampleSize: draft.sampleSize,
       window: { start: recentStart, end: input.today, days: windowDays },
+      examined,
       groups: draft.groups,
       needed,
       relatedTagIds: draft.relatedTagIds,
@@ -999,6 +1090,31 @@ export function formatMetricDelta(delta: number, metric: PatternMetric): string 
 
 export function formatDelta(pattern: Pattern): string {
   return formatMetricDelta(pattern.delta, pattern.metric)
+}
+
+/**
+ * 구간 표기.
+ *
+ * 차이를 크기로 말하므로(형태가 '0.8점 차이'입니다) 차이가 음수인 패턴은 구간도
+ * 뒤집어 크기 범위로 보여줍니다. 그렇게 하지 않으면 "차이 0.8점, 구간 −1.2~−0.4점"
+ * 처럼 읽는 사람이 부호를 두 번 해석해야 합니다.
+ */
+export function formatInterval(pattern: Pattern): string | null {
+  if (!pattern.interval) return null
+  const { low, high } =
+    pattern.delta < 0
+      ? { low: -pattern.interval.high, high: -pattern.interval.low }
+      : pattern.interval
+
+  if (pattern.metric === 'rate') return `${percent(low)}~${percent(high)}%p`
+  if (pattern.metric === 'correlation') return `${low.toFixed(2)}~${high.toFixed(2)}`
+  return `${low.toFixed(1)}~${high.toFixed(1)}점`
+}
+
+/** 다중비교 맥락 한 줄. 하나만 보고 고른 것이 아님을 밝힙니다. */
+export function examinedNote(pattern: Pattern): string | null {
+  if (pattern.examined < 2) return null
+  return `이 기간에 함께 살펴본 관계 ${pattern.examined}개 가운데 하나입니다.`
 }
 
 /** 관찰 기간을 사람이 읽는 문장으로. */

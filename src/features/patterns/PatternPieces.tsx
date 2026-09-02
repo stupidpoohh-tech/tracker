@@ -67,11 +67,21 @@ export function PatternEvidence({ pattern }: { pattern: Pattern }) {
 }
 
 /** 상관은 인과가 아니라는 고지. 모든 패턴 상세에 붙습니다. */
-export function CorrelationNotice() {
+export function CorrelationNotice({ examined }: { examined?: string | null }) {
   return (
-    <p className="hint" style={{ lineHeight: 1.8 }}>
-      두 항목이 함께 나타나는 경향을 보여줍니다. 이 데이터만으로 원인과 결과를 판단할 수는
-      없습니다. 몸이나 마음의 변화가 계속된다면 의료 전문가와 상담해주세요.
-    </p>
+    <div className="hint" style={{ lineHeight: 1.8 }}>
+      <p>
+        두 항목이 함께 나타나는 경향을 보여줍니다. 이 데이터만으로 원인과 결과를 판단할 수는
+        없습니다. 몸이나 마음의 변화가 계속된다면 의료 전문가와 상담해주세요.
+      </p>
+      {/* 여러 관계를 동시에 보고 그중 큰 것을 화면에 올린다는 사실 자체가
+          해석에 필요한 정보입니다. 숨기면 하나만 검증한 것처럼 읽힙니다. */}
+      {examined && (
+        <p style={{ marginTop: 10 }}>
+          {examined} 여러 관계를 한꺼번에 보면 우연히 큰 차이가 하나쯤 나올 수 있어,
+          ‘반복되는 패턴’으로 부를 때는 그 점을 감안해 판정합니다.
+        </p>
+      )}
+    </div>
   )
 }

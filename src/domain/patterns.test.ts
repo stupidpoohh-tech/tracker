@@ -457,3 +457,63 @@ describe('기록 일수 — 판단에 쓸 수 있는 것만 셉니다', () => {
     expect(countLoggedDays(entries, { start: '2026-08-01', end: '2026-09-02' })).toBe(1)
   })
 })
+
+describe('불확실성 — 흔들리는 차이를 확정으로 말하지 않습니다', () => {
+  /** 그룹 평균은 0.6점 벌어지지만 그룹 안의 편차가 그보다 큽니다. */
+  const noisy = days(60, 0, (i) => ({
+    mood: (i % 2 === 0 ? ([5, 1, 5, 1, 4][Math.floor(i / 2) % 5] as Scale) : ([4, 1, 4, 1, 3][Math.floor(i / 2) % 5] as Scale)),
+    sleep: (i % 2 === 0 ? 'good' : 'little') as SleepQuality,
+  }))
+
+  it('표본이 충분해도 구간이 0을 사이에 두면 반복되는 패턴이라고 하지 않습니다', () => {
+    const pattern = run(noisy).find((p) => p.id === 'sleep-mood')
+    expect(pattern?.sampleSize).toBeGreaterThanOrEqual(STABLE_TOTAL)
+    expect(pattern?.status).toBe('signal')
+    expect(pattern?.interval).not.toBeNull()
+    expect((pattern?.interval as { low: number }).low).toBeLessThan(0)
+  })
+
+  it('편차가 작으면 같은 표본에서도 반복되는 패턴이 됩니다', () => {
+    const tight = days(60, 0, (i) => ({
+      mood: (i % 2 === 0 ? 5 : 2) as Scale,
+      sleep: (i % 2 === 0 ? 'good' : 'little') as SleepQuality,
+    }))
+    expect(run(tight).find((p) => p.id === 'sleep-mood')?.status).toBe('stable')
+  })
+
+  it('구간은 차이를 감쌉니다', () => {
+    for (const pattern of run(noisy)) {
+      if (!pattern.interval) continue
+      expect(pattern.interval.low).toBeLessThanOrEqual(pattern.delta)
+      expect(pattern.interval.high).toBeGreaterThanOrEqual(pattern.delta)
+    }
+  })
+
+  it('함께 살펴본 관계의 수를 패턴마다 들고 다닙니다', () => {
+    const patterns = run(noisy)
+    expect(patterns.length).toBeGreaterThan(1)
+    for (const pattern of patterns) expect(pattern.examined).toBe(patterns.length)
+  })
+})
+
+describe('얼마나 더 필요한지 — 지키지 못할 약속을 하지 않습니다', () => {
+  it('표본이 모자랄 때만 남은 일수를 말합니다', () => {
+    const short = days(20, 0, (i) => ({
+      mood: (i % 2 === 0 ? 5 : 2) as Scale,
+      sleep: (i % 2 === 0 ? 'good' : 'little') as SleepQuality,
+    }))
+    const pattern = run(short).find((p) => p.id === 'sleep-mood')
+    expect(pattern?.status).toBe('signal')
+    expect(pattern?.needed).toBeGreaterThan(0)
+  })
+
+  it('표본은 찼는데 차이가 확실하지 않으면 남은 일수를 말하지 않습니다', () => {
+    const noisy = days(60, 0, (i) => ({
+      mood: (i % 2 === 0 ? ([5, 1, 5, 1, 4][Math.floor(i / 2) % 5] as Scale) : ([4, 1, 4, 1, 3][Math.floor(i / 2) % 5] as Scale)),
+      sleep: (i % 2 === 0 ? 'good' : 'little') as SleepQuality,
+    }))
+    const pattern = run(noisy).find((p) => p.id === 'sleep-mood')
+    expect(pattern?.status).toBe('signal')
+    expect(pattern?.needed).toBeNull()
+  })
+})

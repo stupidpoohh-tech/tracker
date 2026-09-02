@@ -9,7 +9,9 @@ import {
   STATUS_LABELS,
   baselineOf,
   describeObservationTrend,
+  examinedNote,
   formatDelta,
+  formatInterval,
 } from '@/domain/patterns'
 import { Icon } from '@/ui/Icon'
 import { Spinner } from '@/ui/components'
@@ -162,17 +164,25 @@ export function PatternDetailScreen({
           <h2 className="section-title">데이터에서 이렇게 나타났습니다</h2>
         </div>
         <PatternEvidence pattern={pattern} />
-        {pattern.groups.length >= 2 && pattern.metric !== 'correlation' && (
-          <p className="meta" style={{ marginTop: 12 }}>
-            차이 {formatDelta(pattern)}
-          </p>
-        )}
-        {pattern.needed != null && (
+        {/* 점추정만 두면 12일치와 120일치가 같은 확신으로 보입니다. */}
+        <p className="meta" style={{ marginTop: 12 }}>
+          {pattern.metric === 'correlation'
+            ? `상관계수 ${pattern.delta.toFixed(2)}`
+            : `차이 ${formatDelta(pattern)}`}
+          {formatInterval(pattern) && ` · 95% 구간 ${formatInterval(pattern)}`}
+        </p>
+        {pattern.needed != null ? (
           <p className="hint" style={{ marginTop: 10 }}>
             {pattern.status === 'insufficient'
               ? `판단하려면 약 ${pattern.needed}일의 기록이 더 필요합니다.`
               : `반복되는 패턴인지 확인하려면 약 ${pattern.needed}일이 더 모이면 좋습니다.`}
           </p>
+        ) : (
+          pattern.status === 'signal' && (
+            <p className="hint" style={{ marginTop: 10 }}>
+              기록은 충분히 모였지만 차이의 범위가 아직 넓습니다. 더 쌓이면 좁아질 수 있습니다.
+            </p>
+          )
         )}
       </section>
 
@@ -203,7 +213,7 @@ export function PatternDetailScreen({
         <div className="section-head">
           <h2 className="section-title">이 패턴에 대하여</h2>
         </div>
-        <CorrelationNotice />
+        <CorrelationNotice examined={examinedNote(pattern)} />
       </section>
 
       <section>

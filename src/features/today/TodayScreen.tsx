@@ -19,6 +19,7 @@ import {
   CHANGE_LABELS,
   STATUS_LABELS,
   describeObservationTrend,
+  examinedNote,
   type Pattern,
 } from '@/domain/patterns'
 import type { Observation } from '@/domain/models'
@@ -203,6 +204,9 @@ function Discovery({
       <div style={{ marginTop: 16 }}>
         <PatternEvidence pattern={pattern} />
       </div>
+      {/* 스무 개 남짓을 계산해 그중 가장 뚜렷한 것을 올립니다. 그 사실을 적지
+          않으면 하나만 검증한 결과처럼 읽힙니다. */}
+      {examinedNote(pattern) && <p className="meta" style={{ marginTop: 12 }}>{examinedNote(pattern)}</p>}
       <button
         type="button"
         className="btn btn-sm"
