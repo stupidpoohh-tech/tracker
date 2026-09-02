@@ -8,13 +8,16 @@ import { isMixedState, type EntryMap, type TrackedModules } from '@/domain/model
 /** 데이터 간격이 이 이상이면 추세선을 잇지 않습니다. */
 const MAX_GAP_DAYS = 14
 
-const CHART_HEIGHT = 210
-/** 왼쪽 눈금 숫자(1~5)가 들어갈 자리. */
-const AXIS_GUTTER = 22
-const DATA_TOP = 14
-const DATA_BOTTOM = CHART_HEIGHT * 0.78
-const SLEEP_ROW_Y = CHART_HEIGHT * 0.92
-const LABEL_Y = CHART_HEIGHT + 20
+/*
+ * 높이를 이전(210px)보다 28% 줄였습니다. 기록이 적을 때 큰 빈 그래프가
+ * 화면의 절반을 차지하면 데이터보다 컴포넌트가 먼저 보입니다.
+ */
+const CHART_HEIGHT = 150
+const AXIS_GUTTER = 18
+const DATA_TOP = 10
+const DATA_BOTTOM = 112
+const SLEEP_ROW_Y = 130
+const LABEL_Y = CHART_HEIGHT + 14
 
 interface Point {
   x: number
@@ -42,24 +45,33 @@ function segmentedPath(points: readonly Point[]): string {
     .join(' ')
 }
 
-const SLEEP_COLOR: Record<string, string> = {
-  little: 'var(--sleep-little)',
-  good: 'var(--sleep-good)',
-  too_much: 'var(--sleep-much)',
+export const SLEEP_COLOR: Record<string, string> = {
+  little: 'var(--sleep-short)',
+  good: 'var(--sleep-ok)',
+  too_much: 'var(--sleep-long)',
 }
 
-const PHASE_COLOR: Record<string, string> = {
+export const PHASE_COLOR: Record<string, string> = {
   period: 'var(--phase-period)',
   premenstrual: 'var(--phase-premenstrual)',
   ovulation: 'var(--phase-ovulation)',
 }
 
+export interface ChartLayers {
+  sleep: boolean
+  cycle: boolean
+}
+
 /**
- * 기분·에너지 추세 + 수면 + 주기 단계 음영.
+ * 기분·에너지 추세.
  *
- * 표현 규칙은 유지합니다: 기분과 에너지가 같은 Y축을 공유하고, 형태로
- * 구분하며(기분 ●, 에너지 ◆) 각각 단색입니다. 수치별로 색을 바꾸지 않습니다.
- * 색만으로 구분하면 색각 이상이 있는 사용자가 두 계열을 구별할 수 없습니다.
+ * 두 계열은 같은 Y축을 공유하고 형태로 구분합니다(기분 ●, 에너지 ◆).
+ * 수치별로 색을 바꾸지 않습니다 — 높낮이가 이미 값을 표현합니다.
+ * 색만으로 구분하면 색각 이상이 있는 사용자가 두 계열을 구별하지 못하므로
+ * 형태 구분을 함께 둡니다.
+ *
+ * 데이터 색은 브랜드 세이지와 분리했습니다. 검증기(dataviz)로 명도·채도·
+ * 색각 분리·대비를 확인한 값만 씁니다.
  */
 export function TrendChart({
   start,
@@ -67,6 +79,7 @@ export function TrendChart({
   entries,
   phaseIndex,
   modules,
+  layers,
   today,
   selectedDate,
   onSelect,
@@ -76,6 +89,7 @@ export function TrendChart({
   entries: EntryMap
   phaseIndex: PhaseIndex
   modules: TrackedModules
+  layers: ChartLayers
   today: DateKey
   selectedDate: DateKey | null
   onSelect: (date: DateKey | null) => void
@@ -83,18 +97,21 @@ export function TrendChart({
   const dates = useMemo(() => datesInRange(start, end), [start, end])
 
   const dense = dates.length > 120
-  const slotWidth = dense ? 4 : 10
-  const gap = dense ? 2 : 4
+  const slotWidth = dense ? 3.5 : 9
+  const gap = dense ? 1.6 : 3.5
   const step = slotWidth + gap
-  const dotRadius = dense ? 2.6 : 4.6
-  const diamond = dense ? 3.2 : 5.2
-  const mixedRadius = dense ? 5.4 : 8
-  const plotWidth = Math.max(dates.length * step, 260)
+  const dotRadius = dense ? 2.2 : 3.6
+  const diamond = dense ? 2.6 : 4.2
+  const mixedRadius = dense ? 4.6 : 6.6
+  const plotWidth = Math.max(dates.length * step, 240)
   const chartWidth = plotWidth + AXIS_GUTTER
 
   const valueY = (value: number): number =>
     DATA_BOTTOM - ((value - 1) / 4) * (DATA_BOTTOM - DATA_TOP)
   const slotX = (index: number): number => AXIS_GUTTER + index * step + slotWidth / 2
+
+  const showSleep = modules.sleep && layers.sleep
+  const showCycle = modules.cycle && layers.cycle
 
   const { moodPath, energyPath, summary } = useMemo(() => {
     const moodPoints: Point[] = []
@@ -116,65 +133,41 @@ export function TrendChart({
      
   }, [dates, entries, step, slotWidth, modules.mood, modules.energy, start, end])
 
-  const labelEvery = Math.max(1, Math.floor(dates.length / 6))
+  const labelEvery = Math.max(1, Math.floor(dates.length / 5))
 
   if (dates.length === 0) {
     return <p className="empty">표시할 구간이 없습니다.</p>
   }
 
   return (
-    <div className="scroll-x" style={{ paddingBottom: 2 }}>
+    <div className="scroll-x">
       <svg
         width={chartWidth}
-        height={LABEL_Y + 8}
+        height={LABEL_Y + 6}
         role="img"
         aria-label={summary}
         style={{ display: 'block', overflow: 'visible' }}
       >
-        <defs>
-          <pattern
-            id="predicted-hatch"
-            width="4"
-            height="4"
-            patternTransform="rotate(45)"
-            patternUnits="userSpaceOnUse"
-          >
-            <line x1="0" y1="0" x2="0" y2="4" stroke="currentColor" strokeWidth="1.6" />
-          </pattern>
-        </defs>
-
-        {/* 주기 단계 음영 */}
-        {dates.map((date, index) => {
-          const info = phaseIndex.get(date)
-          if (!info) return null
-          const cx = slotX(index)
-          const color = PHASE_COLOR[info.phase] ?? 'var(--grid)'
-          return (
-            <g key={`phase-${date}`} color={color}>
+        {/* 주기 단계 — 배경 띠. 켜 두어도 눈에 거슬리지 않게 아주 옅게. */}
+        {showCycle &&
+          dates.map((date, index) => {
+            const info = phaseIndex.get(date)
+            if (!info) return null
+            const cx = slotX(index)
+            return (
               <rect
-                x={cx - slotWidth / 2 - 1}
-                y={DATA_TOP - 8}
-                width={slotWidth + 2}
-                height={DATA_BOTTOM - DATA_TOP + 16}
-                fill={color}
-                opacity={info.predicted ? 0.08 : 0.15}
-                rx={2}
+                key={`phase-${date}`}
+                x={cx - slotWidth / 2 - 0.8}
+                y={DATA_TOP - 6}
+                width={slotWidth + 1.6}
+                height={DATA_BOTTOM - DATA_TOP + 12}
+                fill={PHASE_COLOR[info.phase] ?? 'var(--grid)'}
+                opacity={info.predicted ? 0.16 : 0.32}
               />
-              {info.predicted && (
-                <rect
-                  x={cx - slotWidth / 2 - 1}
-                  y={DATA_TOP - 8}
-                  width={slotWidth + 2}
-                  height={DATA_BOTTOM - DATA_TOP + 16}
-                  fill="url(#predicted-hatch)"
-                  opacity={0.2}
-                />
-              )}
-            </g>
-          )
-        })}
+            )
+          })}
 
-        {/* 1~5 눈금선과 축 숫자 */}
+        {/* 눈금선 — 아주 옅은 중성 회색. 축 숫자는 1·3·5만. */}
         {[1, 2, 3, 4, 5].map((value) => (
           <g key={`grid-${value}`}>
             <line
@@ -184,38 +177,31 @@ export function TrendChart({
               y2={valueY(value)}
               stroke="var(--grid)"
               strokeWidth={1}
-              strokeDasharray="3 5"
             />
-            <text
-              x={AXIS_GUTTER - 8}
-              y={valueY(value) + 3.5}
-              textAnchor="end"
-              fontSize="10.5"
-              fill="var(--text-3)"
-            >
-              {value}
-            </text>
+            {(value === 1 || value === 3 || value === 5) && (
+              <text
+                x={AXIS_GUTTER - 6}
+                y={valueY(value) + 3}
+                textAnchor="end"
+                fontSize="9.5"
+                fill="var(--text-3)"
+              >
+                {value}
+              </text>
+            )}
           </g>
         ))}
 
         {moodPath && (
-          <path
-            d={moodPath}
-            fill="none"
-            stroke="var(--mood)"
-            strokeWidth={dense ? 1 : 1.5}
-            strokeDasharray="4 3"
-            opacity={0.55}
-          />
+          <path d={moodPath} fill="none" stroke="var(--series-mood)" strokeWidth={2} opacity={0.32} />
         )}
         {energyPath && (
           <path
             d={energyPath}
             fill="none"
-            stroke="var(--energy)"
-            strokeWidth={dense ? 1 : 1.5}
-            strokeDasharray="4 3"
-            opacity={0.55}
+            stroke="var(--series-energy)"
+            strokeWidth={2}
+            opacity={0.32}
           />
         )}
 
@@ -238,7 +224,7 @@ export function TrendChart({
                   x={cx}
                   y={LABEL_Y}
                   textAnchor="middle"
-                  fontSize={dense ? 8.5 : 10}
+                  fontSize={dense ? 8.5 : 9.5}
                   fill="var(--text-3)"
                 >
                   {shortLabel(date)}
@@ -246,21 +232,20 @@ export function TrendChart({
               )}
               <rect
                 x={cx - step / 2}
-                y={DATA_TOP - 10}
+                y={DATA_TOP - 8}
                 width={step}
-                height={DATA_BOTTOM - DATA_TOP + 20}
-                fill={selected ? 'var(--accent-soft)' : 'transparent'}
-                rx={4}
+                height={DATA_BOTTOM - DATA_TOP + 16}
+                fill={selected ? 'var(--surface-sunken)' : 'transparent'}
+                rx={3}
               />
               {date === today && (
                 <line
                   x1={cx}
                   x2={cx}
-                  y1={DATA_TOP - 10}
-                  y2={SLEEP_ROW_Y + 4}
-                  stroke="var(--accent)"
+                  y1={DATA_TOP - 8}
+                  y2={DATA_BOTTOM + 8}
+                  stroke="var(--axis)"
                   strokeWidth={1}
-                  strokeOpacity={0.4}
                   strokeDasharray="2 3"
                 />
               )}
@@ -270,9 +255,9 @@ export function TrendChart({
                   cy={valueY(entry.mood)}
                   r={mixedRadius}
                   fill="none"
-                  stroke="var(--mixed)"
-                  strokeWidth={1.6}
-                  opacity={0.9}
+                  stroke="var(--warning)"
+                  strokeWidth={1.4}
+                  opacity={0.85}
                 />
               )}
               {modules.mood && entry?.mood && (
@@ -280,26 +265,26 @@ export function TrendChart({
                   cx={cx}
                   cy={valueY(entry.mood)}
                   r={dotRadius}
-                  fill="var(--mood)"
-                  stroke="var(--surface)"
-                  strokeWidth={dense ? 0.8 : 1.5}
+                  fill="var(--series-mood)"
+                  stroke="var(--bg)"
+                  strokeWidth={2}
                 />
               )}
               {modules.energy && entry?.energy && (
                 <polygon
                   points={`${cx},${valueY(entry.energy) - diamond} ${cx + diamond},${valueY(entry.energy)} ${cx},${valueY(entry.energy) + diamond} ${cx - diamond},${valueY(entry.energy)}`}
-                  fill="var(--energy)"
-                  stroke="var(--surface)"
-                  strokeWidth={dense ? 0.7 : 1.3}
+                  fill="var(--series-energy)"
+                  stroke="var(--bg)"
+                  strokeWidth={2}
                 />
               )}
-              {modules.sleep && entry?.sleep && (
+              {showSleep && entry?.sleep && (
                 <rect
-                  x={cx - (dense ? 2.5 : 4.5)}
-                  y={SLEEP_ROW_Y - 3}
-                  width={dense ? 5 : 9}
-                  height={dense ? 5 : 7}
-                  rx={2.5}
+                  x={cx - (dense ? 1.6 : 3.4)}
+                  y={SLEEP_ROW_Y}
+                  width={dense ? 3.2 : 6.8}
+                  height={3}
+                  rx={1.5}
                   fill={SLEEP_COLOR[entry.sleep] ?? 'var(--grid)'}
                 />
               )}
@@ -311,50 +296,73 @@ export function TrendChart({
   )
 }
 
-function LegendItem({ color, label, shape = 'dot' }: { color: string; label: string; shape?: 'dot' | 'diamond' | 'ring' }) {
+/** 주 범례 — 기분·에너지만. 나머지는 아래 보조 열쇠로 내립니다. */
+export function ChartLegend({ modules }: { modules: TrackedModules }) {
   return (
-    <span className="legend-item">
-      <span
-        aria-hidden
-        className="legend-dot"
-        style={{
-          background: shape === 'ring' ? 'transparent' : color,
-          border: shape === 'ring' ? `1.6px solid ${color}` : 'none',
-          borderRadius: shape === 'diamond' ? '2px' : '50%',
-          transform: shape === 'diamond' ? 'rotate(45deg)' : 'none',
-        }}
-      />
-      {label}
-    </span>
+    <div className="legend">
+      {modules.mood && (
+        <span className="legend-item">
+          <span className="legend-mark" style={{ background: 'var(--series-mood)' }} />
+          기분
+        </span>
+      )}
+      {modules.energy && (
+        <span className="legend-item">
+          <span className="legend-mark diamond" style={{ background: 'var(--series-energy)' }} />
+          에너지
+        </span>
+      )}
+    </div>
   )
 }
 
-export function ChartLegend({ modules, showCycle }: { modules: TrackedModules; showCycle: boolean }) {
+/**
+ * 보조 열쇠 — 켜져 있는 계층만, 한 줄로.
+ * 차트를 보는 순간 설명서를 읽는 느낌이 들지 않게 작고 물러나게 둡니다.
+ */
+export function ChartSecondaryKey({
+  modules,
+  layers,
+  hasMixed,
+}: {
+  modules: TrackedModules
+  layers: ChartLayers
+  hasMixed: boolean
+}) {
+  const items: { color: string; label: string; shape?: 'bar' | 'ring' }[] = []
+
+  if (modules.sleep && layers.sleep) {
+    items.push(
+      { color: 'var(--sleep-short)', label: '적게 잠', shape: 'bar' },
+      { color: 'var(--sleep-ok)', label: '잘 잠', shape: 'bar' },
+      { color: 'var(--sleep-long)', label: '많이 잠', shape: 'bar' },
+    )
+  }
+  if (modules.cycle && layers.cycle) {
+    for (const phase of Object.keys(PHASE_LABELS) as (keyof typeof PHASE_LABELS)[]) {
+      items.push({ color: PHASE_COLOR[phase] as string, label: PHASE_LABELS[phase], shape: 'bar' })
+    }
+  }
+  if (hasMixed) items.push({ color: 'var(--warning)', label: '혼재', shape: 'ring' })
+
+  if (items.length === 0) return null
+
   return (
-    <div className="legend">
-      <div className="legend-row">
-        {modules.mood && <LegendItem color="var(--mood)" label="기분" />}
-        {modules.energy && <LegendItem color="var(--energy)" label="에너지" shape="diamond" />}
-        {modules.mood && modules.energy && (
-          <LegendItem color="var(--mixed)" label="혼재" shape="ring" />
-        )}
-        <span className="legend-note">1(낮음) → 5(높음)</span>
-      </div>
-      {modules.sleep && (
-        <div className="legend-row">
-          <LegendItem color="var(--sleep-little)" label="적게 잠" />
-          <LegendItem color="var(--sleep-good)" label="잘 잠" />
-          <LegendItem color="var(--sleep-much)" label="많이 잠" />
-        </div>
-      )}
-      {showCycle && (
-        <div className="legend-row">
-          {(Object.keys(PHASE_LABELS) as (keyof typeof PHASE_LABELS)[]).map((phase) => (
-            <LegendItem key={phase} color={PHASE_COLOR[phase] as string} label={PHASE_LABELS[phase]} />
-          ))}
-          <span className="legend-note">빗금 = 예측</span>
-        </div>
-      )}
+    <div className="legend-secondary">
+      {items.map((item) => (
+        <span key={item.label} className="legend-item" style={{ fontSize: 11.5, gap: 5 }}>
+          <span
+            className={`legend-mark${item.shape === 'bar' ? ' bar' : ''}`}
+            style={{
+              background: item.shape === 'ring' ? 'transparent' : item.color,
+              border: item.shape === 'ring' ? `1.4px solid ${item.color}` : 'none',
+              width: item.shape === 'ring' ? 8 : undefined,
+              height: item.shape === 'ring' ? 8 : undefined,
+            }}
+          />
+          {item.label}
+        </span>
+      ))}
     </div>
   )
 }

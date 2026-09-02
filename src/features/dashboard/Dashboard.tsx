@@ -13,7 +13,7 @@ import {
   sleepLabel,
   type Entry,
 } from '@/domain/models'
-import { Icon, type IconName } from '@/ui/Icon'
+import { Icon } from '@/ui/Icon'
 import { Spinner } from '@/ui/components'
 import {
   RANGE_PRESETS,
@@ -23,93 +23,92 @@ import {
   resolveRange,
   type RangePreset,
 } from './range'
-import { ChartLegend, TrendChart } from './TrendChart'
+import {
+  ChartLegend,
+  ChartSecondaryKey,
+  SLEEP_COLOR,
+  TrendChart,
+  type ChartLayers,
+} from './TrendChart'
 
 /** 처음에 보여줄 기록 수. 나머지는 '더보기'로 펼칩니다. */
 const RECENT_PREVIEW = 6
 
-function StatTile({
-  icon,
+/** `8.04 – 9.02` — 헤더에서 기간을 한 줄로 압축해 보여줍니다. */
+function compactRange(start: DateKey, end: DateKey): string {
+  const short = (key: DateKey): string => `${Number(key.slice(5, 7))}.${key.slice(8, 10)}`
+  return `${short(start)} – ${short(end)}`
+}
+
+function Kpi({
   value,
-  suffix,
+  unit,
   label,
-  highlight,
+  brand,
 }: {
-  icon: IconName
   value: string
-  suffix?: string
+  unit?: string
   label: string
-  highlight?: boolean
+  brand?: boolean
 }) {
   return (
-    <div className="stat-tile">
-      <span className="stat-icon">
-        <Icon name={icon} size={18} />
-      </span>
-      <div className="stat-value">
-        <span className={highlight ? 'accent' : undefined}>{value}</span>
-        {suffix && <span className="stat-suffix">{suffix}</span>}
+    <div className="kpi-item">
+      <div className={`kpi-value${brand ? ' is-brand' : ''}`}>
+        {value}
+        {unit && <span className="kpi-unit">{unit}</span>}
       </div>
-      <div className="stat-label">{label}</div>
+      <div className="kpi-label">{label}</div>
     </div>
   )
 }
 
 function DayDetail({ entry, phaseLabel }: { entry: Entry; phaseLabel: string | null }) {
   const { tagIndex } = useApp()
-  const fields: { label: string; value: string; color: string }[] = []
-  if (entry.mood)
-    fields.push({ label: '기분', value: `${entry.mood} · ${moodLabel(entry.mood)}`, color: 'var(--mood)' })
+  const rows: { label: string; value: string }[] = []
+  if (entry.mood) rows.push({ label: '기분', value: `${entry.mood} · ${moodLabel(entry.mood)}` })
   if (entry.energy)
-    fields.push({
-      label: '에너지',
-      value: `${entry.energy} · ${energyLabel(entry.energy)}`,
-      color: 'var(--energy)',
-    })
+    rows.push({ label: '에너지', value: `${entry.energy} · ${energyLabel(entry.energy)}` })
   if (entry.sleep) {
     const hours = entry.sleepHours != null ? ` · ${entry.sleepHours}시간` : ''
-    fields.push({ label: '수면', value: `${sleepLabel(entry.sleep)}${hours}`, color: 'var(--text)' })
+    rows.push({ label: '수면', value: `${sleepLabel(entry.sleep)}${hours}` })
   }
-  if (phaseLabel) fields.push({ label: '주기', value: phaseLabel, color: 'var(--phase-period)' })
+  if (phaseLabel) rows.push({ label: '주기', value: phaseLabel })
 
   const tags = resolveEntryTagIds(entry, tagIndex).map((id) => tagIndex.byId.get(id)?.name ?? id)
 
   return (
     <div className="stack-sm">
-      {fields.length > 0 && (
-        <div className="row wrap" style={{ gap: 8 }}>
-          {fields.map((field) => (
-            <div
-              key={field.label}
-              style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '7px 11px' }}
-            >
-              <div style={{ fontSize: 10.5, color: 'var(--text-3)' }}>{field.label}</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: field.color }}>{field.value}</div>
-            </div>
-          ))}
+      {rows.map((row) => (
+        <div key={row.label} className="row-between" style={{ fontSize: 13 }}>
+          <span style={{ color: 'var(--text-3)' }}>{row.label}</span>
+          <span style={{ color: 'var(--text)' }}>{row.value}</span>
         </div>
-      )}
+      ))}
       {isMixedState(entry) && (
-        <div className="row" style={{ gap: 6, color: 'var(--mixed)', fontSize: 12.5, fontWeight: 600 }}>
-          <Icon name="alert" size={14} />
+        <div className="row" style={{ gap: 6, color: 'var(--warning)', fontSize: 12.5 }}>
+          <Icon name="alert" size={13} />
           혼재 상태 — 기분·에너지 차이 {Math.abs((entry.mood ?? 0) - (entry.energy ?? 0))}
         </div>
       )}
       {tags.length > 0 && (
-        <div className="row wrap" style={{ gap: 5 }}>
+        <div className="row wrap" style={{ gap: 4, marginTop: 2 }}>
           {tags.map((name) => (
-            <span
-              key={name}
-              className="badge"
-              style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
-            >
+            <span key={name} className="tag">
               {name}
             </span>
           ))}
         </div>
       )}
       {entry.memo && (
-        <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+        <p
+          style={{
+            fontSize: 13.5,
+            color: 'var(--text-2)',
+            lineHeight: 1.75,
+            whiteSpace: 'pre-wrap',
+            marginTop: 2,
+          }}
+        >
           {entry.memo}
         </p>
       )}
@@ -125,6 +124,7 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
   const [custom, setCustom] = useState(() => defaultCustomRange(today))
   const [selected, setSelected] = useState<DateKey | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const [layers, setLayers] = useState<ChartLayers>({ sleep: true, cycle: true })
 
   const modules = profile?.modules ?? { mood: true, energy: true, sleep: true, cycle: false }
 
@@ -173,13 +173,14 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
     [cycles, today, modules.cycle],
   )
 
-  const topTags = useMemo(() => tagFrequency(rangeEntries, tagIndex, 8), [rangeEntries, tagIndex])
+  const topTags = useMemo(() => tagFrequency(rangeEntries, tagIndex, 6), [rangeEntries, tagIndex])
 
   const recent = useMemo(
     () => [...rangeEntries].sort((a, b) => b.date.localeCompare(a.date)),
     [rangeEntries],
   )
   const visibleRecent = expanded ? recent.slice(0, 60) : recent.slice(0, RECENT_PREVIEW)
+  const hasMixed = useMemo(() => rangeEntries.some(isMixedState), [rangeEntries])
 
   const changePreset = (next: RangePreset): void => {
     setPreset(next)
@@ -187,41 +188,34 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
     setSelected(null)
   }
 
+  const toggleLayer = (key: keyof ChartLayers): void =>
+    setLayers((prev) => ({ ...prev, [key]: !prev[key] }))
+
   return (
     <div className="page">
+      {/* ① 현재 상태 ───────────────────────────────────────────────────── */}
       <header className="page-header">
-        <div>
-          <div className="row" style={{ gap: 8 }}>
-            <h1 className="page-title">대시보드</h1>
-            {syncing && <Spinner size={14} />}
-            {offline && (
-              <span className="row" style={{ gap: 4, color: 'var(--text-3)', fontSize: 11 }}>
-                <Icon name="cloudOff" size={13} /> 오프라인
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            className="period-button"
-            onClick={() => changePreset(preset === 'custom' ? '30' : 'custom')}
-            aria-label="기간 직접 설정"
-          >
-            {range.label}
-            <Icon name="chevronDown" size={15} />
-          </button>
+        <div className="row" style={{ gap: 8, minWidth: 0 }}>
+          <h1 className="page-title">대시보드</h1>
+          {syncing && <Spinner size={13} />}
+          {offline && (
+            <span className="row" style={{ gap: 3, color: 'var(--text-3)', fontSize: 11 }}>
+              <Icon name="cloudOff" size={12} /> 오프라인
+            </span>
+          )}
         </div>
-        <button type="button" className="btn btn-tint btn-sm" onClick={() => onEdit(today)}>
-          <Icon name="plus" size={16} strokeWidth={2.2} /> 오늘 기록
+        <button type="button" className="btn btn-primary btn-sm" onClick={() => onEdit(today)}>
+          <Icon name="plus" size={15} strokeWidth={2} /> 기록
         </button>
       </header>
 
-      {/* 구간 선택 — 시안의 세그먼트 컨트롤 */}
-      <div className="segmented" role="group" aria-label="표시 구간">
+      {/* 기간 — 텍스트 탭 + 한 줄 메타 */}
+      <div className="tabs scroll-x" role="group" aria-label="표시 구간">
         {RANGE_PRESETS.map((item) => (
           <button
             key={item.id}
             type="button"
-            className="segmented-item"
+            className="tab"
             aria-pressed={preset === item.id}
             onClick={() => changePreset(item.id)}
           >
@@ -230,8 +224,37 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
         ))}
       </div>
 
+      <div className="range-bar">
+        {preset !== 'custom' && (
+          <button
+            type="button"
+            className="range-step"
+            aria-label="이전 구간"
+            disabled={!canGoBack(preset, range, earliestData)}
+            onClick={() => setOffset((o) => o + 1)}
+          >
+            <Icon name="chevronLeft" size={15} />
+          </button>
+        )}
+        <span className="range-label">
+          {compactRange(range.start, range.end)}
+          <span style={{ color: 'var(--text-3)' }}> · {range.days}일</span>
+        </span>
+        {preset !== 'custom' && (
+          <button
+            type="button"
+            className="range-step"
+            aria-label="다음 구간"
+            disabled={!canGoForward(preset, offset)}
+            onClick={() => setOffset((o) => Math.max(0, o - 1))}
+          >
+            <Icon name="chevronRight" size={15} />
+          </button>
+        )}
+      </div>
+
       {preset === 'custom' && (
-        <div className="card card-tight row" style={{ gap: 8, marginTop: 10 }}>
+        <div className="row" style={{ gap: 8, marginTop: 10 }}>
           <input
             className="input"
             type="date"
@@ -241,7 +264,7 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
             aria-label="시작일"
             style={{ minHeight: 38, fontSize: 13 }}
           />
-          <span className="hint">~</span>
+          <span className="meta">~</span>
           <input
             className="input"
             type="date"
@@ -255,121 +278,88 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
         </div>
       )}
 
-      {preset !== 'custom' && (
-        <div className="row" style={{ justifyContent: 'center', gap: 14, margin: '12px 0 4px' }}>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            aria-label="이전 구간"
-            disabled={!canGoBack(preset, range, earliestData)}
-            onClick={() => setOffset((o) => o + 1)}
-          >
-            <Icon name="chevronLeft" size={16} />
-          </button>
-          <span style={{ fontSize: 13, color: 'var(--text-2)', minWidth: 74, textAlign: 'center' }}>
-            {offset === 0 ? '현재' : preset === 'year' ? range.label : `${offset}구간 전`}
-          </span>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            aria-label="다음 구간"
-            disabled={!canGoForward(preset, offset)}
-            onClick={() => setOffset((o) => Math.max(0, o - 1))}
-          >
-            <Icon name="chevronRight" size={16} />
-          </button>
-        </div>
-      )}
-
-      {/* 요약 타일 */}
-      <div className="stat-grid" style={{ margin: '12px 0 14px' }}>
-        <StatTile
-          icon="calendar"
-          value={String(overview.loggedDays)}
-          suffix={`/${overview.totalDays}`}
-          label="기록한 날"
-          highlight
-        />
+      {/* KPI — 카드 없이 얇은 세로선으로만 구분 */}
+      <div className="kpi-row">
+        <Kpi value={String(overview.loggedDays)} unit={`/${overview.totalDays}일`} label="기록" brand />
         {modules.mood && (
-          <StatTile
-            icon="leaf"
+          <Kpi
             value={overview.moodAvg != null ? overview.moodAvg.toFixed(1) : '—'}
             label="평균 기분"
           />
         )}
         {modules.energy && (
-          <StatTile
-            icon="zap"
+          <Kpi
             value={overview.energyAvg != null ? overview.energyAvg.toFixed(1) : '—'}
             label="평균 에너지"
           />
         )}
-        <StatTile icon="sun" value={`${overview.currentStreak}일`} label="연속 기록" />
+        <Kpi value={String(overview.currentStreak)} unit="일" label="연속 기록" />
       </div>
 
-      {/* 주기 상태 */}
       {cycleStatus && cycleStatus.cycleDay != null && (
-        <div className="card card-tight row" style={{ marginBottom: 14, gap: 11 }}>
-          <span
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 10,
-              background: 'var(--rose-soft)',
-              color: 'var(--phase-period)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <Icon name="droplet" size={17} />
-          </span>
-          <span className="grow">
-            <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700 }}>
-              주기 {cycleStatus.cycleDay}일차
-              {cycleStatus.phase ? ` · ${PHASE_LABELS[cycleStatus.phase]}` : ''}
-            </span>
-            <span style={{ display: 'block', fontSize: 12, color: 'var(--text-3)', marginTop: 1 }}>
-              {cycleStatus.daysOverdue != null
-                ? `예상일보다 ${cycleStatus.daysOverdue}일 지났습니다`
-                : `다음 예상일까지 ${cycleStatus.daysUntilNextPeriod}일`}
-              {cycleStatus.stats.usesDefaults
-                ? ' · 28일 기본값'
-                : ` · 평균 ${cycleStatus.stats.averageCycleLength}일`}
-            </span>
-          </span>
-        </div>
+        <p className="meta" style={{ marginTop: -8, marginBottom: 20 }}>
+          주기 {cycleStatus.cycleDay}일차
+          {cycleStatus.phase ? ` · ${PHASE_LABELS[cycleStatus.phase]}` : ''} ·{' '}
+          {cycleStatus.daysOverdue != null
+            ? `예상일 ${cycleStatus.daysOverdue}일 지남`
+            : `다음 예상일까지 ${cycleStatus.daysUntilNextPeriod}일`}
+        </p>
       )}
 
-      {/* 차트 */}
-      <section className="card" style={{ marginBottom: 16 }}>
-        <div style={{ marginBottom: 12 }}>
-          <ChartLegend modules={modules} showCycle={modules.cycle} />
+      {/* ② 변화 추이 ───────────────────────────────────────────────────── */}
+      <section style={{ marginBottom: 28 }}>
+        <div className="row-between" style={{ marginBottom: 12, alignItems: 'flex-start' }}>
+          <ChartLegend modules={modules} />
+          <div className="row" style={{ gap: 4, flexShrink: 0 }}>
+            {modules.sleep && (
+              <button
+                type="button"
+                className="layer-toggle"
+                aria-pressed={layers.sleep}
+                onClick={() => toggleLayer('sleep')}
+              >
+                수면
+              </button>
+            )}
+            {modules.cycle && (
+              <button
+                type="button"
+                className="layer-toggle"
+                aria-pressed={layers.cycle}
+                onClick={() => toggleLayer('cycle')}
+              >
+                주기
+              </button>
+            )}
+          </div>
         </div>
+
         <TrendChart
           start={range.start}
           end={range.end}
           entries={entries}
           phaseIndex={phaseIndex}
           modules={modules}
+          layers={layers}
           today={today}
           selectedDate={selected}
           onSelect={setSelected}
         />
+
+        <ChartSecondaryKey modules={modules} layers={layers} hasMixed={hasMixed} />
       </section>
 
       {selected && entries[selected] && (
-        <section className="card" style={{ marginBottom: 16, animation: 'fade-in 0.2s var(--ease)' }}>
-          <div className="row-between" style={{ marginBottom: 10 }}>
+        <section className="panel-muted" style={{ marginBottom: 28 }}>
+          <div className="row-between" style={{ marginBottom: 12 }}>
             <div>
-              <span style={{ fontSize: 14.5, fontWeight: 700 }}>{fullLabel(selected)}</span>
-              <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 6 }}>
+              <span className="section-title">{fullLabel(selected)}</span>
+              <span className="meta" style={{ marginLeft: 6 }}>
                 {relativeLabel(selected, today)}
               </span>
             </div>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => onEdit(selected)}>
-              <Icon name="pencil" size={14} /> 수정
+              수정
             </button>
           </div>
           <DayDetail
@@ -383,22 +373,21 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
         </section>
       )}
 
-      {/* 태그 빈도 */}
       {topTags.length > 0 && (
-        <section style={{ marginBottom: 16 }}>
+        <section style={{ marginBottom: 28 }}>
           <div className="section-head">
-            <h2>이 기간 태그</h2>
+            <h2 className="section-title">자주 기록한 태그</h2>
           </div>
-          <div className="card stack-sm">
+          <div className="stack-sm">
             {topTags.map((tag) => {
               const max = topTags[0]?.count ?? 1
               return (
                 <div key={tag.tagId} className="row" style={{ gap: 10 }}>
                   <span
                     style={{
-                      fontSize: 12.5,
+                      fontSize: 13,
                       color: 'var(--text-2)',
-                      width: 112,
+                      width: 104,
                       flexShrink: 0,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -410,20 +399,15 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
                   </span>
                   <span
                     className="grow"
-                    style={{
-                      height: 10,
-                      background: 'var(--surface-2)',
-                      borderRadius: 999,
-                      overflow: 'hidden',
-                    }}
+                    style={{ height: 3, background: 'var(--grid)', borderRadius: 2 }}
                   >
                     <span
                       style={{
                         display: 'block',
                         width: `${(tag.count / max) * 100}%`,
                         height: '100%',
-                        background: 'var(--accent-bright)',
-                        borderRadius: 999,
+                        background: 'var(--text-3)',
+                        borderRadius: 2,
                       }}
                     />
                   </span>
@@ -431,7 +415,7 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
                     style={{
                       fontSize: 12,
                       color: 'var(--text-3)',
-                      width: 20,
+                      width: 18,
                       textAlign: 'right',
                       fontVariantNumeric: 'tabular-nums',
                     }}
@@ -445,14 +429,14 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
         </section>
       )}
 
-      {/* 기록 목록 */}
+      {/* ③ 최근 기록 ───────────────────────────────────────────────────── */}
       <section>
         <div className="section-head">
-          <h2>이 기간 기록</h2>
+          <h2 className="section-title">이 기간 기록</h2>
           {recent.length > RECENT_PREVIEW && (
             <button type="button" className="section-more" onClick={() => setExpanded((v) => !v)}>
               {expanded ? '접기' : '더보기'}
-              <Icon name={expanded ? 'chevronDown' : 'chevronRight'} size={14} />
+              <Icon name={expanded ? 'chevronDown' : 'chevronRight'} size={13} />
             </button>
           )}
         </div>
@@ -466,9 +450,10 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
         ) : (
           <div className="record-list">
             {visibleRecent.map((entry) => {
-              const tags = resolveEntryTagIds(entry, tagIndex)
-              const firstTag = tags[0] ? tagIndex.byId.get(tags[0])?.name : null
-              const summary = entry.memo || (firstTag ? tags.map((id) => tagIndex.byId.get(id)?.name ?? id).join(' ') : '')
+              const tags = resolveEntryTagIds(entry, tagIndex).map(
+                (id) => tagIndex.byId.get(id)?.name ?? id,
+              )
+              const summary = entry.memo || tags.join(' · ')
               return (
                 <button
                   key={entry.date}
@@ -477,56 +462,27 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
                   onClick={() => setSelected(selected === entry.date ? null : entry.date)}
                 >
                   <span className="record-date">{entry.date.slice(5).replace('-', '/')}</span>
-                  <span className="record-body">
-                    {entry.mood && (
-                      <span
-                        className="badge"
-                        style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
-                      >
-                        기분 {entry.mood}
-                      </span>
-                    )}
-                    {entry.energy && (
-                      <span
-                        className="badge"
-                        style={{ background: 'var(--teal-soft)', color: 'var(--teal)' }}
-                      >
-                        에너지 {entry.energy}
-                      </span>
+                  <span className="record-main">
+                    {entry.mood != null && (
+                      <span className="record-score">기분 {entry.mood}</span>
                     )}
                     {entry.sleep && (
                       <span
-                        className="badge"
+                        aria-label={sleepLabel(entry.sleep)}
+                        title={sleepLabel(entry.sleep)}
                         style={{
-                          background:
-                            entry.sleep === 'little'
-                              ? 'var(--rose-soft)'
-                              : entry.sleep === 'good'
-                                ? 'var(--success-soft)'
-                                : 'var(--surface-2)',
-                          color:
-                            entry.sleep === 'little'
-                              ? 'var(--rose)'
-                              : entry.sleep === 'good'
-                                ? 'var(--success)'
-                                : 'var(--text-2)',
+                          width: 10,
+                          height: 3,
+                          borderRadius: 2,
+                          flexShrink: 0,
+                          background: SLEEP_COLOR[entry.sleep] ?? 'var(--grid)',
                         }}
-                      >
-                        {sleepLabel(entry.sleep)}
-                      </span>
+                      />
                     )}
-                    {isMixedState(entry) && (
-                      <span
-                        className="badge"
-                        style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}
-                      >
-                        혼재
-                      </span>
-                    )}
-                    {summary && <span className="record-memo">{summary}</span>}
+                    {summary && <span className="record-summary">{summary}</span>}
                   </span>
                   <span className="record-chevron">
-                    <Icon name="chevronRight" size={16} />
+                    <Icon name="chevronRight" size={15} />
                   </span>
                 </button>
               )

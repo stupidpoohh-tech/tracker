@@ -36,8 +36,8 @@ function GroupTable({ title, groups, note }: { title: string; groups: GroupSumma
   const usable = groups.filter((g) => g.count > 0)
   if (usable.length === 0) return null
   return (
-    <section className="card stack-sm">
-      <h3 style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em' }}>{title}</h3>
+    <section className="stack-sm">
+      <h3 className="section-title">{title}</h3>
       <div className="stack-sm">
         {usable.map((group) => (
           <div key={group.key} className="row" style={{ gap: 10 }}>
@@ -129,17 +129,17 @@ export function InsightsScreen() {
             최근 {windowDays}일 중 {overview.loggedDays}일 기록
           </p>
         </div>
-        <button type="button" className="btn btn-tint btn-sm" onClick={() => setShowReport(true)}>
-          <Icon name="print" size={15} /> 진료 리포트
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowReport(true)}>
+          <Icon name="print" size={14} /> 리포트
         </button>
       </header>
 
-      <div className="segmented" role="group" aria-label="분석 기간" style={{ marginBottom: 16 }}>
+      <div className="tabs scroll-x" role="group" aria-label="분석 기간" style={{ marginBottom: 20 }}>
         {WINDOW_OPTIONS.map((option) => (
           <button
             key={option.days}
             type="button"
-            className="segmented-item"
+            className="tab"
             aria-pressed={windowDays === option.days}
             onClick={() => setWindowDays(option.days)}
           >
@@ -165,18 +165,19 @@ export function InsightsScreen() {
       {cards.length > 0 && (
         <div className="stack" style={{ marginBottom: 20 }}>
           {cards.map((card) => (
-            <article
-              key={card.id}
-              className="card"
-              style={{
-                borderLeft: `3px solid ${card.strength === 'strong' ? 'var(--accent)' : 'var(--border-strong)'}`,
-              }}
-            >
-              <div className="row" style={{ gap: 8, marginBottom: 6 }}>
-                <span style={{ color: 'var(--accent-bright)' }}>
-                  <Icon name={KIND_ICON[card.kind]} size={16} />
+            <article key={card.id} className="panel-muted">
+              <div className="row" style={{ gap: 8, marginBottom: 7, alignItems: 'flex-start' }}>
+                <span style={{ color: 'var(--text-3)', marginTop: 2 }}>
+                  <Icon name={KIND_ICON[card.kind]} size={15} />
                 </span>
-                <h2 style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.45, letterSpacing: '-0.02em' }}>
+                <h2
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 600,
+                    lineHeight: 1.5,
+                    letterSpacing: '-0.025em',
+                  }}
+                >
                   {card.title}
                 </h2>
               </div>

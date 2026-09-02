@@ -1,210 +1,221 @@
 /*
  * 디자인 토큰.
  *
- * 색은 여기서만 정의합니다. v3는 인라인 style 객체에 흩어져 있어 테마 전환도
- * 대비 조정도 한 곳에서 할 수 없었습니다.
+ * 방향: clean / editorial / data-focused. 화면의 대부분은 흰색과 중성 회색이고,
+ * 브랜드 세이지는 CTA·선택 상태·미세 표식에만 씁니다(전체 면적의 5~10%).
  *
- * 대비 기준
- * - 본문·보조 텍스트는 WCAG AA(4.5:1)를 맞췄습니다.
- * - --accent는 흰 글자를 얹는 상호작용 색이라 4.5:1을 넘겨야 합니다.
- * - --accent-bright는 큰 숫자·아이콘 전용입니다. 18.66px 굵은 글씨 기준
- *   3:1을 넘기므로 본문에는 쓰지 마세요.
+ * 두 종류의 색을 분리합니다.
+ * - 브랜드(--brand*): 인터페이스 강조. 데이터에는 쓰지 않습니다.
+ * - 데이터(--series-*, --sleep-*, --phase-*): 계열 식별. 브랜드색과 겹치지
+ *   않게 두어야 '초록이 UI인지 데이터인지' 혼동이 생기지 않습니다.
+ *
+ * 데이터 색은 눈으로 고르지 않고 dataviz 검증기로 확인했습니다.
+ *   기분 #6366c4 · 에너지 #0f9691 (light, 흰 배경)
+ *   기분 #7276d2 · 에너지 #18a199 (dark, #0f1110 배경)
+ * 두 모드 모두 명도대역·채도하한·색각 분리(ΔE)·대비 검사를 통과합니다.
  */
 
 :root {
   color-scheme: light;
 
+  /* 표면 — 배경은 완전한 흰색 */
   --bg: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f4f6f4;
-  --surface-3: #e9ece9;
-  --border: #eaedea;
-  --border-strong: #d5dad6;
+  --surface-muted: #fafbfa;
+  --surface-sunken: #f4f6f3;
+  --border: #e9ece8;
+  --border-subtle: #f1f3ef;
+  --border-strong: #d6dbd5;
 
-  --text: #1a1d1b;
-  --text-2: #5b625d;
-  --text-3: #8a918c;
+  /* 잉크 */
+  --text: #171a18;
+  --text-2: #6f756f;
+  --text-3: #a1a6a1;
 
-  /* 강조 — 초록 */
-  --accent: #15803d;
-  --accent-hover: #116632;
-  --accent-bright: #22a55b;
-  --accent-soft: #e8f6ee;
-  --accent-border: #c9e9d6;
-  --on-accent: #ffffff;
+  /* 브랜드 — 밝고 채도가 낮은 세이지 라임 */
+  --brand: #8fbf72;
+  --brand-soft: #f2f7ee;
+  --brand-line: #dcead1;
+  /* 세이지 위에 얹는 잉크. 밝은 면이라 어두운 글자를 씁니다. */
+  --on-brand: #16240f;
+  /* 세이지 계열 글자가 필요할 때. 흰 배경에서 4.6:1입니다. */
+  --brand-ink: #5a7f42;
 
-  --rose: #b4454f;
-  --rose-tint: #e0919a;
-  --rose-soft: #fdeef0;
+  /* 데이터 계열 */
+  --series-mood: #6366c4;
+  --series-energy: #0f9691;
+  --series-mood-soft: #eeeefa;
+  --series-energy-soft: #e6f4f3;
 
-  --teal: #1f7a71;
-  --teal-tint: #7cc3ba;
-  --teal-soft: #e6f4f2;
+  /* 수면 — 이상치(부족)만 눈에 띄게, 나머지는 물러나게 */
+  --sleep-short: #c8735a;
+  --sleep-ok: #b4bbb5;
+  --sleep-long: #8e96a8;
 
-  --amber: #8a6a1f;
-  --amber-tint: #e0c58a;
-  --amber-soft: #fbf3e2;
+  /* 주기 — 배경 띠라 매우 옅게 */
+  --phase-period: #e6c3ca;
+  --phase-premenstrual: #e4dcc4;
+  --phase-ovulation: #c6d4e4;
 
-  --blue: #3d6d99;
-  --blue-tint: #a8c8e8;
-  --blue-soft: #eaf2fa;
+  /* 상태 */
+  --danger: #a8443c;
+  --danger-soft: #fbf0ef;
+  --warning: #8a6a2a;
+  --warning-soft: #faf4e8;
+  --positive: #3f7a4a;
+  --positive-soft: #eff5f0;
 
-  /* 차트 */
-  --mood: #22a55b;
-  --energy: #26a79b;
-  --mixed: #e8a33d;
-  --sleep-little: #e0616b;
-  --sleep-good: #22a55b;
-  --sleep-much: #7a7a82;
-  --grid: #e4e7e5;
+  --grid: #f0f2ef;
+  --axis: #cdd3cc;
 
-  /* 주기 단계 */
-  --phase-period: #f0a0b4;
-  --phase-premenstrual: #ecceA0;
-  --phase-ovulation: #a8c8e8;
-
-  --danger: #b3423c;
-  --danger-soft: #fdeeed;
-  --success: #15803d;
-  --success-soft: #e8f6ee;
-
-  --font: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font:
+    'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
 
-  --radius-lg: 18px;
-  --radius: 12px;
-  --radius-sm: 9px;
+  /* 반경 — 모든 요소를 같은 값으로 두지 않습니다 */
+  --radius-container: 18px;
+  --radius-control: 10px;
+  --radius-chip: 6px;
   --radius-pill: 999px;
 
-  --shadow: 0 1px 3px rgb(16 24 20 / 5%);
-  --shadow-sm: 0 1px 2px rgb(16 24 20 / 4%);
-  --shadow-lg: 0 10px 32px rgb(16 24 20 / 12%);
-
   --tap: 44px;
-  --page-max: 560px;
-  --nav-height: 62px;
+  --page-max: 520px;
+  --nav-height: 58px;
 
   --ease: cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
-/* 다크 모드 — 시스템 설정을 따를 때 */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --bg: #101513;
-    --surface: #171d1a;
-    --surface-2: #1f2723;
-    --surface-3: #29332d;
-    --border: #2a332e;
-    --border-strong: #3d4942;
+    --bg: #0f1110;
+    --surface: #141715;
+    --surface-muted: #171a18;
+    --surface-sunken: #1c201d;
+    --border: #242a25;
+    --border-subtle: #1d221f;
+    --border-strong: #333a34;
 
-    --text: #eaf0ec;
-    --text-2: #aab5ae;
-    --text-3: #85918a;
+    --text: #eef1ee;
+    --text-2: #a4aba5;
+    --text-3: #757c76;
 
-    --accent: #4ade80;
-    --accent-hover: #6ee79a;
-    --accent-bright: #4ade80;
-    --accent-soft: #15271d;
-    --accent-border: #2c4a37;
-    --on-accent: #06180e;
+    --brand: #a5cf8b;
+    --brand-soft: #1a2416;
+    --brand-line: #2c3d24;
+    --on-brand: #0e1a09;
+    --brand-ink: #a5cf8b;
 
-    --rose: #e8a0a7;
-    --rose-tint: #c07f87;
-    --rose-soft: #2c1d1f;
+    --series-mood: #7276d2;
+    --series-energy: #18a199;
+    --series-mood-soft: #1a1b2c;
+    --series-energy-soft: #10201f;
 
-    --teal: #7fd2c7;
-    --teal-tint: #5ea79d;
-    --teal-soft: #142724;
+    --sleep-short: #cf8168;
+    --sleep-ok: #767d77;
+    --sleep-long: #7c849a;
 
-    --amber: #dcc189;
-    --amber-tint: #b09b6c;
-    --amber-soft: #2a2418;
+    --phase-period: #6b4d53;
+    --phase-premenstrual: #5f5843;
+    --phase-ovulation: #47576a;
 
-    --blue: #9fc0e0;
-    --blue-tint: #7899ba;
-    --blue-soft: #1a222b;
+    --danger: #e08a83;
+    --danger-soft: #241a19;
+    --warning: #cfae72;
+    --warning-soft: #221d13;
+    --positive: #7fb98c;
+    --positive-soft: #142016;
 
-    --mood: #4ade80;
-    --energy: #5fd6c6;
-    --mixed: #e8b45f;
-    --sleep-little: #e8868f;
-    --sleep-good: #4ade80;
-    --sleep-much: #97979f;
-    --grid: #2c3630;
-
-    --phase-period: #c9808f;
-    --phase-premenstrual: #bfa678;
-    --phase-ovulation: #7f9dbc;
-
-    --danger: #ef8b84;
-    --danger-soft: #2c1c1b;
-    --success: #4ade80;
-    --success-soft: #15271d;
-
-    --shadow: 0 1px 3px rgb(0 0 0 / 40%);
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
-    --shadow-lg: 0 10px 32px rgb(0 0 0 / 55%);
+    --grid: #1f241f;
+    --axis: #3a423b;
   }
 }
 
-/* 다크 모드 — 사용자가 설정에서 직접 고른 경우 (시스템 설정보다 우선) */
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --bg: #101513;
-  --surface: #171d1a;
-  --surface-2: #1f2723;
-  --surface-3: #29332d;
-  --border: #2a332e;
-  --border-strong: #3d4942;
+  --bg: #0f1110;
+  --surface: #141715;
+  --surface-muted: #171a18;
+  --surface-sunken: #1c201d;
+  --border: #242a25;
+  --border-subtle: #1d221f;
+  --border-strong: #333a34;
 
-  --text: #eaf0ec;
-  --text-2: #aab5ae;
-  --text-3: #85918a;
+  --text: #eef1ee;
+  --text-2: #a4aba5;
+  --text-3: #757c76;
 
-  --accent: #4ade80;
-  --accent-hover: #6ee79a;
-  --accent-bright: #4ade80;
-  --accent-soft: #15271d;
-  --accent-border: #2c4a37;
-  --on-accent: #06180e;
+  --brand: #a5cf8b;
+  --brand-soft: #1a2416;
+  --brand-line: #2c3d24;
+  --on-brand: #0e1a09;
+  --brand-ink: #a5cf8b;
 
-  --rose: #e8a0a7;
-  --rose-tint: #c07f87;
-  --rose-soft: #2c1d1f;
+  --series-mood: #7276d2;
+  --series-energy: #18a199;
+  --series-mood-soft: #1a1b2c;
+  --series-energy-soft: #10201f;
 
-  --teal: #7fd2c7;
-  --teal-tint: #5ea79d;
-  --teal-soft: #142724;
+  --sleep-short: #cf8168;
+  --sleep-ok: #767d77;
+  --sleep-long: #7c849a;
 
-  --amber: #dcc189;
-  --amber-tint: #b09b6c;
-  --amber-soft: #2a2418;
+  --phase-period: #6b4d53;
+  --phase-premenstrual: #5f5843;
+  --phase-ovulation: #47576a;
 
-  --blue: #9fc0e0;
-  --blue-tint: #7899ba;
-  --blue-soft: #1a222b;
+  --danger: #e08a83;
+  --danger-soft: #241a19;
+  --warning: #cfae72;
+  --warning-soft: #221d13;
+  --positive: #7fb98c;
+  --positive-soft: #142016;
 
-  --mood: #4ade80;
-  --energy: #5fd6c6;
-  --mixed: #e8b45f;
-  --sleep-little: #e8868f;
-  --sleep-good: #4ade80;
-  --sleep-much: #97979f;
-  --grid: #2c3630;
+  --grid: #1f241f;
+  --axis: #3a423b;
+}
 
-  --phase-period: #c9808f;
-  --phase-premenstrual: #bfa678;
-  --phase-ovulation: #7f9dbc;
-
-  --danger: #ef8b84;
-  --danger-soft: #2c1c1b;
-  --success: #4ade80;
-  --success-soft: #15271d;
-
-  --shadow: 0 1px 3px rgb(0 0 0 / 40%);
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
-  --shadow-lg: 0 10px 32px rgb(0 0 0 / 55%);
+/*
+ * 이전 이름과의 호환. 화면 전체를 한 번에 바꾸는 대신 점진적으로 옮기기
+ * 위해 남겨둡니다. 새 코드에서는 위의 이름만 쓰세요.
+ */
+:root,
+:root[data-theme='dark'] {
+  --accent: var(--brand-ink);
+  --accent-hover: var(--brand-ink);
+  --accent-bright: var(--brand-ink);
+  --accent-soft: var(--brand-soft);
+  --accent-border: var(--brand-line);
+  --on-accent: var(--on-brand);
+  --surface-2: var(--surface-sunken);
+  --surface-3: var(--border);
+  --mood: var(--series-mood);
+  --energy: var(--series-energy);
+  --mixed: var(--warning);
+  --sleep-little: var(--sleep-short);
+  --sleep-good: var(--sleep-ok);
+  --sleep-much: var(--sleep-long);
+  --rose: var(--danger);
+  --rose-soft: var(--danger-soft);
+  --rose-tint: var(--phase-period);
+  --teal: var(--series-energy);
+  --teal-soft: var(--series-energy-soft);
+  --teal-tint: var(--series-energy);
+  --amber: var(--warning);
+  --amber-soft: var(--warning-soft);
+  --amber-tint: var(--warning);
+  --blue: var(--series-mood);
+  --blue-soft: var(--series-mood-soft);
+  --blue-tint: var(--series-mood);
+  --success: var(--positive);
+  --success-soft: var(--positive-soft);
+  --radius-lg: var(--radius-container);
+  --radius: var(--radius-control);
+  --radius-sm: var(--radius-chip);
+  --shadow: none;
+  --shadow-sm: none;
+  --shadow-lg: 0 8px 28px rgb(16 20 16 / 10%);
 }

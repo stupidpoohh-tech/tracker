@@ -80,7 +80,7 @@ describe('앱 부팅', () => {
     const repo = createFakeRepository({ entries: seedEntries(), tags, categories })
     renderApp(repo)
     expect(await screen.findByRole('heading', { name: '대시보드' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /오늘 기록/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '기록' })).toBeTruthy()
   })
 
   it('동의 전이면 온보딩을 먼저 보여줍니다', async () => {
@@ -148,10 +148,10 @@ describe('대시보드', () => {
     renderApp(repo)
     await screen.findByRole('heading', { name: '대시보드' })
     // 기본 30일 구간, 40일치 기록 → 30일 모두 기록됨.
-    // 타일은 큰 숫자와 분모를 따로 렌더링합니다(시안의 '28/245' 형태).
-    const tile = (await screen.findByText('기록한 날')).closest('.stat-tile') as HTMLElement
-    expect(within(tile).getByText('30')).toBeTruthy()
-    expect(within(tile).getByText('/30')).toBeTruthy()
+    // KPI는 카드가 아니라 열이고, 주 숫자와 보조 단위를 나눠 렌더링합니다.
+    const kpi = (await screen.findByText('/30일')).closest('.kpi-item') as HTMLElement
+    expect(within(kpi).getByText('30')).toBeTruthy()
+    expect(within(kpi).getByText('기록')).toBeTruthy()
     expect(screen.getByText('평균 기분')).toBeTruthy()
   })
 
@@ -178,18 +178,42 @@ describe('대시보드', () => {
     await screen.findByRole('heading', { name: '대시보드' })
     await user.click(screen.getByRole('button', { name: '7일' }))
 
-    const tile = (await screen.findByText('기록한 날')).closest('.stat-tile') as HTMLElement
-    await waitFor(() => expect(within(tile).getByText('/7')).toBeTruthy())
-    expect(within(tile).getByText('7')).toBeTruthy()
+    const kpi = (await screen.findByText('/7일', {}, { timeout: 3000 })).closest(
+      '.kpi-item',
+    ) as HTMLElement
+    expect(within(kpi).getByText('7')).toBeTruthy()
   })
 
-  it('구간 선택이 세그먼트 컨트롤로 표시됩니다', async () => {
+  it('구간 선택이 텍스트 탭으로 표시됩니다', async () => {
     const repo = createFakeRepository({ entries: seedEntries(), tags, categories })
     renderApp(repo)
     await screen.findByRole('heading', { name: '대시보드' })
     const group = screen.getByRole('group', { name: '표시 구간' })
     expect(within(group).getAllByRole('button')).toHaveLength(5)
     expect(within(group).getByRole('button', { name: '30일' }).getAttribute('aria-pressed')).toBe('true')
+    // 알약 안에 알약이 들어가는 세그먼트 컨트롤은 쓰지 않습니다.
+    expect(document.querySelector('.segmented')).toBeNull()
+  })
+
+  it('수면·주기 계층을 껐다 켤 수 있습니다', async () => {
+    const user = userEvent.setup()
+    const repo = createFakeRepository({
+      entries: seedEntries(),
+      tags,
+      categories,
+      profile: { modules: { mood: true, energy: true, sleep: true, cycle: false } },
+    })
+    renderApp(repo)
+    await screen.findByRole('heading', { name: '대시보드' })
+
+    const toggle = screen.getByRole('button', { name: '수면' })
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('적게 잠')).toBeTruthy()
+
+    await user.click(toggle)
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    // 꺼지면 보조 열쇠도 사라져 범례가 기분·에너지만 남습니다.
+    expect(screen.queryByText('적게 잠')).toBeNull()
   })
 
   it('기록이 많으면 더보기로 나머지를 펼칩니다', async () => {
@@ -211,7 +235,7 @@ describe('기록 화면', () => {
     const repo = createFakeRepository({ entries: seedEntries(), tags, categories })
     renderApp(repo)
     await screen.findByRole('heading', { name: '대시보드' })
-    await user.click(screen.getByRole('button', { name: /오늘 기록/ }))
+    await user.click(screen.getByRole('button', { name: '기록' }))
 
     for (const section of ['기분', '에너지', '수면', '태그', '메모']) {
       expect(await screen.findByRole('heading', { name: section })).toBeTruthy()
@@ -225,7 +249,7 @@ describe('기록 화면', () => {
     const repo = createFakeRepository({ tags, categories })
     renderApp(repo)
     await screen.findByRole('heading', { name: '대시보드' })
-    await user.click(screen.getByRole('button', { name: /오늘 기록/ }))
+    await user.click(screen.getByRole('button', { name: '기록' }))
 
     await user.click(await screen.findByRole('radio', { name: '기분 4 — 좋음' }))
     await waitFor(() => expect(repo.state.entries[TODAY]?.mood).toBe(4), { timeout: 3000 })
@@ -237,7 +261,7 @@ describe('기록 화면', () => {
     const repo = createFakeRepository({ tags, categories })
     renderApp(repo)
     await screen.findByRole('heading', { name: '대시보드' })
-    await user.click(screen.getByRole('button', { name: /오늘 기록/ }))
+    await user.click(screen.getByRole('button', { name: '기록' }))
 
     const button = await screen.findByRole('radio', { name: '기분 3 — 보통' })
     await user.click(button)
@@ -252,7 +276,7 @@ describe('기록 화면', () => {
     const repo = createFakeRepository({ tags, categories })
     renderApp(repo)
     await screen.findByRole('heading', { name: '대시보드' })
-    await user.click(screen.getByRole('button', { name: /오늘 기록/ }))
+    await user.click(screen.getByRole('button', { name: '기록' }))
 
     await user.click(await screen.findByRole('radio', { name: '기분 5 — 매우 좋음' }))
     await user.click(await screen.findByRole('radio', { name: '에너지 1 — 매우 낮음' }))
@@ -264,7 +288,7 @@ describe('기록 화면', () => {
     const repo = createFakeRepository({ tags, categories })
     renderApp(repo)
     await screen.findByRole('heading', { name: '대시보드' })
-    await user.click(screen.getByRole('button', { name: /오늘 기록/ }))
+    await user.click(screen.getByRole('button', { name: '기록' }))
 
     await user.click(await screen.findByRole('button', { name: '자해/자살충동' }))
     expect(await screen.findByText(/지금 힘드시다면 도움을 받으실 수 있습니다/)).toBeTruthy()
@@ -277,7 +301,7 @@ describe('기록 화면', () => {
     const repo = createFakeRepository({ tags, categories })
     renderApp(repo)
     await screen.findByRole('heading', { name: '대시보드' })
-    await user.click(screen.getByRole('button', { name: /오늘 기록/ }))
+    await user.click(screen.getByRole('button', { name: '기록' }))
 
     await user.click(await screen.findByRole('radio', { name: '기분 1 — 매우 나쁨' }))
     expect(await screen.findByText(/지금 힘드시다면/)).toBeTruthy()
@@ -292,7 +316,7 @@ describe('기록 화면', () => {
     })
     renderApp(repo)
     await screen.findByRole('heading', { name: '대시보드' })
-    await user.click(screen.getByRole('button', { name: /오늘 기록/ }))
+    await user.click(screen.getByRole('button', { name: '기록' }))
     await screen.findByRole('heading', { name: '기분' })
     expect(screen.queryByRole('heading', { name: '생리주기' })).toBeNull()
   })
@@ -306,7 +330,7 @@ describe('기록 화면', () => {
     })
     renderApp(repo)
     await screen.findByRole('heading', { name: '대시보드' })
-    await user.click(screen.getByRole('button', { name: /오늘 기록/ }))
+    await user.click(screen.getByRole('button', { name: '기록' }))
 
     await user.click(await screen.findByRole('button', { name: /이 날 생리 시작/ }))
     await waitFor(() => expect(repo.state.cycles).toHaveLength(1))
@@ -397,7 +421,7 @@ describe('인사이트 화면', () => {
     renderApp(repo)
     await screen.findByRole('heading', { name: '대시보드' })
     await goToTab(user, '인사이트')
-    await user.click(await screen.findByRole('button', { name: /진료 리포트/ }))
+    await user.click(await screen.findByRole('button', { name: /리포트/ }))
 
     expect(await screen.findByRole('heading', { name: '기분·에너지·수면 기록 요약' })).toBeTruthy()
   })

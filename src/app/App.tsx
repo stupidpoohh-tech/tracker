@@ -34,7 +34,7 @@ function NavBar({ tab, onChange }: { tab: Tab; onChange: (next: Tab) => void }) 
             aria-current={tab === item.id ? 'page' : undefined}
             onClick={() => onChange(item.id)}
           >
-            <Icon name={item.icon} size={20} />
+            <Icon name={item.icon} size={19} />
             <span>{item.label}</span>
           </button>
         ))}

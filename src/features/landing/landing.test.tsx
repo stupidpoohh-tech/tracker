@@ -141,7 +141,7 @@ describe('첫 화면', () => {
     const user = userEvent.setup()
     renderApp()
     await screen.findByRole('heading', { name: '실제 화면입니다' })
-    await user.click(screen.getByRole('button', { name: /오늘 기록/ }))
+    await user.click(screen.getByRole('button', { name: '기록' }))
     expect(await screen.findByText(/예시 화면입니다/)).toBeTruthy()
   })
 })

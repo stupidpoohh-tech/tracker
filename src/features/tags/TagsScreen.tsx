@@ -105,8 +105,8 @@ export function TagsScreen() {
             {archivedCount > 0 ? ` · 보관 ${archivedCount}개` : ''}
           </p>
         </div>
-        <button type="button" className="btn btn-tint btn-sm" onClick={() => setShowPresets(true)}>
-          <Icon name="plus" size={16} strokeWidth={2.2} /> 세트 추가
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowPresets(true)}>
+          <Icon name="plus" size={15} strokeWidth={2} /> 세트 추가
         </button>
       </header>
 
