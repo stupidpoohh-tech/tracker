@@ -5,6 +5,7 @@ import { registerServiceWorker, startForegroundReminder } from '@/lib/pwa'
 import { Icon, type IconName } from '@/ui/Icon'
 import { Spinner } from '@/ui/components'
 import { AuthScreen } from '@/features/auth/AuthScreen'
+import { LandingScreen } from '@/features/landing/LandingScreen'
 import { Onboarding } from '@/features/onboarding/Onboarding'
 import { Dashboard } from '@/features/dashboard/Dashboard'
 import { InsightsScreen } from '@/features/insights/InsightsScreen'
@@ -106,6 +107,8 @@ export function App() {
   const { status, profile, entries, today, migrating, loadError } = useApp()
   const [tab, setTab] = useState<Tab>('dashboard')
   const [logDate, setLogDate] = useState<DateKey | null>(null)
+  /** null이면 소개 화면, 값이 있으면 그 모드의 인증 화면을 띄웁니다. */
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | null>(null)
 
   // 서비스워커 등록 — 오프라인 셸과 리마인더에 필요합니다.
   useEffect(() => {
@@ -120,6 +123,11 @@ export function App() {
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, [today])
+
+  // 로그인에 성공하면 다음 로그아웃 때 소개 화면부터 다시 시작하도록 되돌립니다.
+  useEffect(() => {
+    if (status === 'ready') setAuthMode(null)
+  }, [status])
 
   const lastLoggedDate = useMemo(() => {
     const keys = Object.keys(entries).sort()
@@ -149,7 +157,19 @@ export function App() {
     )
   }
 
-  if (status === 'anonymous') return <AuthScreen />
+  // 로그인 전에는 소개 화면을 먼저 보여줍니다. 빈 로그인 폼만 있으면
+  // 방문자는 이 앱이 무엇인지 알 수 없습니다.
+  if (status === 'anonymous') {
+    if (!authMode) {
+      return (
+        <LandingScreen
+          onSignUp={() => setAuthMode('signup')}
+          onSignIn={() => setAuthMode('login')}
+        />
+      )
+    }
+    return <AuthScreen initialMode={authMode} onBack={() => setAuthMode(null)} />
+  }
 
   // 동의와 초기 설정을 마치기 전에는 기록 화면을 열지 않습니다.
   if (!profile?.consent?.sensitiveDataConsent || !profile.onboardedAt) {

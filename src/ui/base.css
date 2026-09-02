@@ -569,3 +569,186 @@ a {
     border-color: #ccc;
   }
 }
+
+/* ─── 랜딩 화면 ────────────────────────────────────────────────────────── */
+
+.landing {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 20px 48px;
+}
+
+.landing-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 0;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.landing-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.landing-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.landing-hero {
+  padding: 24px 0 28px;
+  animation: fade-in 0.4s var(--ease);
+}
+
+.landing-hero h1 {
+  font-size: clamp(26px, 7vw, 34px);
+  font-weight: 700;
+  line-height: 1.32;
+  letter-spacing: -0.02em;
+}
+
+.landing-hero .lede {
+  font-size: 15px;
+  color: var(--text-2);
+  line-height: 1.75;
+  margin-top: 14px;
+}
+
+.landing-cta {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+.landing-cta .btn {
+  flex: 1 1 auto;
+  min-width: 132px;
+}
+
+.landing-section {
+  padding: 28px 0;
+  border-top: 1px solid var(--border);
+  /* 상단 내비가 sticky라 앵커 이동 시 제목이 가려지는 것을 막습니다. */
+  scroll-margin-top: 64px;
+}
+
+.landing-section h2 {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.landing-section .lede {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.75;
+  margin-top: 8px;
+}
+
+/* 실제 화면을 담는 액자 */
+.preview-frame {
+  position: relative;
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.preview-viewport {
+  max-height: min(72vh, 660px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/* 액자 안에서는 하단 내비 여백이 필요 없습니다. */
+.preview-viewport .page {
+  padding-bottom: 20px;
+  max-width: none;
+  animation: none;
+}
+
+.preview-fade {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 72px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--bg));
+}
+
+.preview-tabs {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.landing-features {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+@media (min-width: 560px) {
+  .landing-features {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+
+.feature-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.feature-card h3 {
+  font-size: 14.5px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.feature-card p {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.7;
+}
+
+.landing-footer {
+  padding: 24px 0 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  justify-content: center;
+}

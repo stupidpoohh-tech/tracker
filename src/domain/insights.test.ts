@@ -111,6 +111,48 @@ describe('주기 단계 × 태그', () => {
     expect(irritable!.inPhaseCount).toBe(15) // 3주기 × 5일
   })
 
+  it('그 외 기간에 없던 태그는 배수 대신 실제 빈도로 설명합니다', () => {
+    // 라플라스 보정 때문에 '97배' 같은 수치가 문구에 나오면 안 됩니다.
+    const entries = series('2025-01-01', 69, (_, date) => {
+      const phase = phaseIndex.get(date)?.phase
+      return {
+        mood: 3 as Scale,
+        energy: 3 as Scale,
+        sleep: 'good' as SleepQuality,
+        tagIds: phase === 'premenstrual' ? ['t-irritable'] : [],
+      }
+    })
+    const cards = buildInsights({
+      entries,
+      phaseIndex,
+      tagIndex,
+      rangeStart: '2025-01-01',
+      rangeEnd: '2025-03-10',
+    })
+    const card = cards.find((c) => c.id.startsWith('taglift-premenstrual-t-irritable'))
+    expect(card).toBeDefined()
+    expect(card!.body).not.toMatch(/배입니다/)
+    expect(card!.body).toContain('한 번도 없었습니다')
+    expect(card!.title).toContain('구간에서만 나타났습니다')
+  })
+
+  it('그 외 기간에도 나오는 태그는 양쪽 비율을 함께 적습니다', () => {
+    const entries = series('2025-01-01', 69, (i, date) => {
+      const phase = phaseIndex.get(date)?.phase
+      const inPhase = phase === 'premenstrual'
+      return {
+        mood: 3 as Scale,
+        tagIds: inPhase || i % 7 === 0 ? ['t-irritable'] : [],
+      }
+    })
+    const lifts = computeTagLifts(entries, phaseIndex, tagIndex)
+    const lift = lifts.find((l) => l.tagId === 't-irritable' && l.phase === 'premenstrual')
+    expect(lift).toBeDefined()
+    expect(lift!.outPhaseCount).toBeGreaterThan(0)
+    expect(lift!.outPhaseRate).toBeGreaterThan(0)
+    expect(lift!.outPhaseDays).toBeGreaterThan(0)
+  })
+
   it('전 구간에 고르게 나오는 태그는 배수가 낮아 걸러집니다', () => {
     const entries = series('2025-01-01', 69, () => ({ mood: 3 as Scale, tagIds: ['t-happy'] }))
     const lifts = computeTagLifts(entries, phaseIndex, tagIndex)

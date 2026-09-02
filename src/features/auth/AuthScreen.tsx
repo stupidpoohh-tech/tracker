@@ -19,9 +19,15 @@ const COPY: Record<Mode, { title: string; subtitle: string; submit: string }> = 
   },
 }
 
-export function AuthScreen() {
+export function AuthScreen({
+  initialMode = 'login',
+  onBack,
+}: {
+  initialMode?: Mode
+  onBack?: () => void
+} = {}) {
   const toast = useToast()
-  const [mode, setMode] = useState<Mode>('login')
+  const [mode, setMode] = useState<Mode>(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
@@ -88,6 +94,16 @@ export function AuthScreen() {
       }}
     >
       <div style={{ width: '100%', maxWidth: 360 }}>
+        {onBack && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={onBack}
+            style={{ marginBottom: 8 }}
+          >
+            <Icon name="chevronLeft" size={16} /> 소개 화면으로
+          </button>
+        )}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div
             style={{

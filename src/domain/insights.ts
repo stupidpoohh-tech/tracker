@@ -231,9 +231,12 @@ export interface TagLift {
   phase: CyclePhase
   inPhaseRate: number
   outPhaseRate: number
+  /** 순위를 매기기 위한 배수. 표시에는 쓰지 않습니다 — 아래 주석 참고. */
   lift: number
   inPhaseCount: number
   phaseDays: number
+  outPhaseCount: number
+  outPhaseDays: number
 }
 
 /** 특정 주기 단계에서 유독 자주 나오는 태그를 찾습니다. */
@@ -268,20 +271,29 @@ export function computeTagLifts(
 
     for (const [tagId, inCount] of countIn) {
       if (inCount < MIN_TAG_OCCURRENCES) continue
+      const outCount = countOut.get(tagId) ?? 0
       const inRate = inCount / inPhase.length
-      // 0으로 나누지 않도록 라플라스 보정을 씁니다.
-      const outRate = ((countOut.get(tagId) ?? 0) + 0.5) / (outPhase.length + 1)
-      const lift = inRate / outRate
+      /*
+       * 순위용 배수에는 0으로 나누는 것을 막기 위해 라플라스 보정을 씁니다.
+       * 다만 이 값을 그대로 문구에 쓰면 안 됩니다. 그 외 기간에 한 번도
+       * 없었던 태그는 보정 상수 때문에 '97배' 같은 숫자가 나오는데, 이는
+       * 관계의 크기가 아니라 계산 방식의 부산물입니다. 카드에는 실제 빈도를
+       * 백분율로 적습니다.
+       */
+      const smoothedOutRate = (outCount + 0.5) / (outPhase.length + 1)
+      const lift = inRate / smoothedOutRate
       if (lift < MIN_TAG_LIFT) continue
       out.push({
         tagId,
         name: tagIndex.byId.get(tagId)?.name ?? tagId,
         phase,
         inPhaseRate: inRate,
-        outPhaseRate: outRate,
+        outPhaseRate: outCount / outPhase.length,
         lift,
         inPhaseCount: inCount,
         phaseDays: inPhase.length,
+        outPhaseCount: outCount,
+        outPhaseDays: outPhase.length,
       })
     }
   }
@@ -383,15 +395,23 @@ export function buildInsights(input: InsightInput): InsightCard[] {
     }
   }
 
-  // 3) 주기 단계별 태그 배수
+  // 3) 주기 단계별 태그 빈도
   for (const lift of computeTagLifts(entries, phaseIndex, tagIndex).slice(0, 3)) {
+    const phaseLabel = PHASE_LABELS[lift.phase]
+    const inPercent = Math.round(lift.inPhaseRate * 100)
+    const outPercent = Math.round(lift.outPhaseRate * 100)
+    const onlyInPhase = lift.outPhaseCount === 0
     cards.push({
       id: `taglift-${lift.phase}-${lift.tagId}`,
       kind: 'tag',
-      title: `${PHASE_LABELS[lift.phase]} 구간에 '${lift.name}'이 몰립니다`,
-      body:
-        `${PHASE_LABELS[lift.phase]} ${lift.phaseDays}일 중 ${lift.inPhaseCount}일에 나타났습니다. ` +
-        `그 외 기간 대비 약 ${lift.lift.toFixed(1)}배입니다.`,
+      title: onlyInPhase
+        ? `'${lift.name}'은 ${phaseLabel} 구간에서만 나타났습니다`
+        : `${phaseLabel} 구간에 '${lift.name}'이 몰립니다`,
+      body: onlyInPhase
+        ? `${phaseLabel} ${lift.phaseDays}일 중 ${lift.inPhaseCount}일(${inPercent}%)에 기록되었고, ` +
+          `그 외 ${lift.outPhaseDays}일 동안은 한 번도 없었습니다.`
+        : `${phaseLabel} ${lift.phaseDays}일 중 ${lift.inPhaseCount}일(${inPercent}%)에 나타났습니다. ` +
+          `그 외 ${lift.outPhaseDays}일 중에는 ${lift.outPhaseCount}일(${outPercent}%)이었습니다.`,
       strength: lift.lift >= 2.5 ? 'strong' : 'moderate',
       magnitude: lift.lift,
       sampleSize: lift.phaseDays,
