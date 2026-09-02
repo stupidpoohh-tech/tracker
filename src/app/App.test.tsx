@@ -4,7 +4,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 
 import { createFakeRepository, mockFirebase, type FakeRepository } from '@/test/harness'
-import { AppProvider } from './store'
+import { AppProvider, describeError } from './store'
 import { App } from './App'
 import { ToastProvider } from '@/ui/components'
 import { addDays, todayKey } from '@/domain/date'
@@ -94,6 +94,51 @@ describe('앱 부팅', () => {
     const repo = createFakeRepository({ profile: { onboardedAt: undefined } })
     renderApp(repo)
     expect(await screen.findByText(/민감정보 수집·이용 동의/)).toBeTruthy()
+  })
+})
+
+describe('로딩 실패 처리', () => {
+  // 회귀 테스트: onSyncError가 status를 바꾸지 않아, 구독이 실패하면
+  // '연결 중…' 화면에 영영 머물렀습니다.
+  it('기록 구독이 실패해도 로딩 화면에 갇히지 않습니다', async () => {
+    const repo = createFakeRepository({
+      tags,
+      categories,
+      failEntriesWith: { code: 'permission-denied' },
+    })
+    renderApp(repo)
+
+    expect(await screen.findByRole('heading', { name: '대시보드' }, { timeout: 5000 })).toBeTruthy()
+    expect(screen.queryByText('연결 중…')).toBeNull()
+  })
+
+  it('실패 원인을 화면에 보여줍니다', async () => {
+    const repo = createFakeRepository({
+      tags,
+      categories,
+      failEntriesWith: { code: 'permission-denied' },
+    })
+    renderApp(repo)
+
+    expect(await screen.findByRole('alert', {}, { timeout: 5000 })).toBeTruthy()
+    expect(screen.getByText(/데이터를 완전히 불러오지 못했습니다/)).toBeTruthy()
+    expect(screen.getByText(/보안 규칙이 접근을 거부했습니다/)).toBeTruthy()
+  })
+
+  it('정상일 때는 오류 배너를 띄우지 않습니다', async () => {
+    const repo = createFakeRepository({ entries: seedEntries(), tags, categories })
+    renderApp(repo)
+    await screen.findByRole('heading', { name: '대시보드' })
+    expect(screen.queryByText(/데이터를 완전히 불러오지 못했습니다/)).toBeNull()
+  })
+})
+
+describe('describeError', () => {
+  it('Firestore 오류 코드를 사용자 문구로 옮깁니다', () => {
+    expect(describeError({ code: 'permission-denied' })).toContain('보안 규칙')
+    expect(describeError({ code: 'unavailable' })).toContain('네트워크')
+    expect(describeError({ code: 'failed-precondition' })).toContain('오프라인 저장소')
+    expect(describeError(new Error('그냥 오류'))).toBe('그냥 오류')
   })
 })
 

@@ -28,6 +28,8 @@ export interface SeedData {
   tags?: Tag[]
   categories?: TagCategory[]
   cycles?: CycleRecord[]
+  /** 기록 구독을 실패시킵니다. 로딩 화면에 갇히지 않는지 확인할 때 씁니다. */
+  failEntriesWith?: { code?: string; message?: string }
 }
 
 export interface FakeRepository extends TrackerRepository {
@@ -111,7 +113,14 @@ export function createFakeRepository(seed: SeedData = {}): FakeRepository {
       emitProfile()
     },
 
-    watchEntries(_uid, onChange) {
+    watchEntries(_uid, onChange, onError) {
+      if (seed.failEntriesWith) {
+        const failure = Object.assign(new Error(seed.failEntriesWith.message ?? '구독 실패'), {
+          code: seed.failEntriesWith.code,
+        })
+        queueMicrotask(() => onError(failure))
+        return () => {}
+      }
       queueMicrotask(() => onChange({ ...state.entries }, false))
       return subscribe(listeners.entries, onChange)
     },

@@ -193,7 +193,8 @@ describe('백업', () => {
   it('v3 원본을 통째로 남깁니다', () => {
     const periods: [string, string][] = [['2025-01-11', '2025-01-15']]
     const plan = run({ entries: legacy, periods, localTags })
-    expect(plan.backup.periods).toEqual(periods)
+    // Firestore가 중첩 배열을 저장하지 못하므로 객체 배열로 펴서 담습니다.
+    expect(plan.backup.periods).toEqual([{ start: '2025-01-11', end: '2025-01-15' }])
     expect(plan.backup.localTags).toEqual(localTags)
     expect(plan.backup.entryCycles).toEqual({
       '2025-01-11': 'period',
@@ -202,6 +203,40 @@ describe('백업', () => {
       '2025-01-25': 'none',
     })
     expect(plan.backup.schemaFrom).toBe(3)
+  })
+})
+
+describe('백업에 Firestore가 거부하는 값이 없어야 합니다', () => {
+  /** 배열 안에 배열이 있으면 Firestore가 저장 자체를 거부합니다. */
+  function hasNestedArray(value: unknown, insideArray = false): boolean {
+    if (Array.isArray(value)) {
+      if (insideArray) return true
+      return value.some((v) => hasNestedArray(v, true))
+    }
+    if (value && typeof value === 'object') {
+      return Object.values(value).some((v) => hasNestedArray(v, false))
+    }
+    return false
+  }
+
+  it('periods를 객체 배열로 펴서 담습니다', () => {
+    const plan = run({
+      entries: legacy,
+      periods: [
+        ['2025-01-11', '2025-01-15'],
+        ['2025-02-05', '2025-02-09'],
+      ],
+      localTags,
+    })
+    expect(hasNestedArray(plan.backup)).toBe(false)
+    expect(plan.backup.periods).toEqual([
+      { start: '2025-01-11', end: '2025-01-15' },
+      { start: '2025-02-05', end: '2025-02-09' },
+    ])
+  })
+
+  it('periods가 없어도 중첩 배열이 생기지 않습니다', () => {
+    expect(hasNestedArray(run({ entries: legacy, localTags }).backup)).toBe(false)
   })
 })
 

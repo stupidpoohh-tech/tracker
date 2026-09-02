@@ -42,7 +42,17 @@ function NavBar({ tab, onChange }: { tab: Tab; onChange: (next: Tab) => void }) 
   )
 }
 
-function FullScreenMessage({ message }: { message: string }) {
+/** 로딩이 이 시간을 넘기면 '오래 걸리는 중'이라고 알립니다. */
+const SLOW_LOAD_MS = 6000
+
+function FullScreenMessage({ message, detail }: { message: string; detail?: string }) {
+  const [slow, setSlow] = useState(false)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSlow(true), SLOW_LOAD_MS)
+    return () => window.clearTimeout(timer)
+  }, [])
+
   return (
     <div
       style={{
@@ -52,6 +62,8 @@ function FullScreenMessage({ message }: { message: string }) {
         alignItems: 'center',
         justifyContent: 'center',
         gap: 14,
+        padding: '24px 20px',
+        textAlign: 'center',
       }}
     >
       <span
@@ -70,12 +82,28 @@ function FullScreenMessage({ message }: { message: string }) {
       </span>
       <Spinner size={24} />
       <p style={{ fontSize: 13.5, color: 'var(--text-3)' }}>{message}</p>
+      {detail && (
+        <p style={{ fontSize: 12.5, color: 'var(--text-3)', maxWidth: 320, lineHeight: 1.7 }}>
+          {detail}
+        </p>
+      )}
+      {slow && (
+        <div className="stack-sm" style={{ maxWidth: 320, marginTop: 8 }}>
+          <p style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.7 }}>
+            예상보다 오래 걸리고 있습니다. 기록이 많으면 첫 연결에 시간이 걸릴 수 있습니다.
+            1분이 지나도 그대로라면 새로고침해주세요.
+          </p>
+          <button type="button" className="btn btn-sm" onClick={() => window.location.reload()}>
+            새로고침
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
 export function App() {
-  const { status, profile, entries, today, migrating } = useApp()
+  const { status, profile, entries, today, migrating, loadError } = useApp()
   const [tab, setTab] = useState<Tab>('dashboard')
   const [logDate, setLogDate] = useState<DateKey | null>(null)
 
@@ -109,7 +137,16 @@ export function App() {
   }, [reminder?.enabled, reminder?.time, lastLoggedDate])
 
   if (status === 'loading') {
-    return <FullScreenMessage message={migrating ? '이전 데이터를 옮기는 중…' : '연결 중…'} />
+    return (
+      <FullScreenMessage
+        message={migrating ? '이전 데이터를 옮기는 중…' : '연결 중…'}
+        detail={
+          migrating
+            ? '기록이 많으면 1~2분 걸릴 수 있습니다. 화면을 닫지 말아주세요.'
+            : undefined
+        }
+      />
+    )
   }
 
   if (status === 'anonymous') return <AuthScreen />
@@ -125,6 +162,25 @@ export function App() {
 
   return (
     <>
+      {loadError && (
+        <div className="page" style={{ paddingBottom: 0 }}>
+          <div className="notice notice-danger stack-sm" style={{ marginTop: 16 }} role="alert">
+            <span className="row" style={{ gap: 6, fontWeight: 700 }}>
+              <Icon name="alert" size={16} />
+              데이터를 완전히 불러오지 못했습니다
+            </span>
+            <span style={{ fontSize: 12.5, lineHeight: 1.7 }}>{loadError}</span>
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{ alignSelf: 'flex-start' }}
+              onClick={() => window.location.reload()}
+            >
+              다시 시도
+            </button>
+          </div>
+        </div>
+      )}
       {tab === 'dashboard' && <Dashboard onEdit={setLogDate} />}
       {tab === 'insights' && <InsightsScreen />}
       {tab === 'tags' && <TagsScreen />}

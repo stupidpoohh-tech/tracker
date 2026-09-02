@@ -53,7 +53,14 @@ export interface MigrationInput {
 export interface LegacyBackup {
   migratedAt: string
   schemaFrom: number
-  periods: [string, string][] | null
+  /**
+   * v3 `meta/periods`의 원본.
+   *
+   * Firestore는 배열 안의 배열을 저장하지 못합니다. v3는 `[[시작, 종료], ...]`
+   * 형태를 그대로 쓰려 했는데, 그래서 이 값이 실제로는 저장되지 않고 있었을
+   * 가능성이 큽니다. 백업에서는 객체 배열로 펴서 담습니다.
+   */
+  periods: { start: string; end: string }[] | null
   localTags: Record<string, string[]> | null
   /** 기록별 v3 cycle 값. 'none'(생리전)은 파생값이라 v4 모델에 자리가 없습니다. */
   entryCycles: Record<string, string>
@@ -229,7 +236,9 @@ export function planMigration(input: MigrationInput): MigrationPlan {
     backup: {
       migratedAt: new Date().toISOString(),
       schemaFrom: 3,
-      periods: periods ?? null,
+      periods: periods
+        ? periods.map(([start, end]) => ({ start, end: end ?? start }))
+        : null,
       localTags: localTags ?? null,
       entryCycles,
     },

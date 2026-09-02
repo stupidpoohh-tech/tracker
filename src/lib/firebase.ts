@@ -17,8 +17,10 @@ import {
 } from 'firebase/auth'
 import {
   initializeFirestore,
+  memoryLocalCache,
   persistentLocalCache,
   persistentMultipleTabManager,
+  type Firestore,
 } from 'firebase/firestore'
 import { firebaseConfig } from './env'
 
@@ -33,11 +35,28 @@ void setPersistence(auth, browserLocalPersistence)
  * v3는 이게 없어서 (1) 지하철·비행기에서 저장이 실패했고 (2) 앱을 열 때마다
  * 전체 기록을 서버에서 다시 읽었습니다. IndexedDB 캐시 + onSnapshot 조합이면
  * 기기당 최초 1회만 전량을 받고 이후에는 변경분만 내려받습니다.
+ *
+ * 다만 IndexedDB를 쓸 수 없는 환경이 있습니다 — 사파리 비공개 브라우징,
+ * 저장소를 차단한 브라우저 설정, 일부 인앱 브라우저. 그런 환경에서 초기화가
+ * 실패하면 앱 전체가 멈추므로, 메모리 캐시로 내려앉아 최소한 동작은 하게 합니다.
+ * (이 경우 오프라인 기록과 읽기 절약 효과는 사라집니다.)
  */
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-  ignoreUndefinedProperties: true,
-})
+function createDb(): Firestore {
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+      ignoreUndefinedProperties: true,
+    })
+  } catch (error) {
+    console.warn('[dada] 오프라인 저장소를 열지 못해 메모리 캐시로 전환합니다.', error)
+    return initializeFirestore(app, {
+      localCache: memoryLocalCache(),
+      ignoreUndefinedProperties: true,
+    })
+  }
+}
+
+export const db = createDb()
 
 export type { User }
 

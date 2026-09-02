@@ -32,6 +32,27 @@ import { useToast } from '@/ui/components'
 
 export type AppStatus = 'loading' | 'anonymous' | 'ready'
 
+/** 첫 화면이 이 시간 안에 뜨지 않으면 원인을 표시합니다. */
+const LOAD_TIMEOUT_MS = 15_000
+
+/** Firebase 오류를 사용자에게 보여줄 한 줄로 옮깁니다. */
+export function describeError(error: unknown): string {
+  const code = (error as { code?: string } | null)?.code ?? ''
+  const table: Record<string, string> = {
+    'permission-denied':
+      'Firestore 보안 규칙이 접근을 거부했습니다. 규칙이 올바르게 게시되었는지 확인해주세요.',
+    unauthenticated: '인증이 만료되었습니다. 다시 로그인해주세요.',
+    unavailable: '서버에 연결하지 못했습니다. 네트워크를 확인해주세요.',
+    'failed-precondition':
+      '이 브라우저에서 오프라인 저장소를 열지 못했습니다. 시크릿 모드이거나 다른 탭이 열려 있는지 확인해주세요.',
+    'resource-exhausted': 'Firestore 사용량 한도를 초과했습니다.',
+    cancelled: '요청이 취소되었습니다.',
+  }
+  if (table[code]) return `${table[code]} (${code})`
+  if (code) return `Firestore 오류: ${code}`
+  return error instanceof Error ? error.message : String(error)
+}
+
 interface AppActions {
   saveEntry: (entry: Entry) => Promise<void>
   deleteEntry: (date: DateKey) => Promise<void>
@@ -70,6 +91,8 @@ interface AppState {
   offline: boolean
   syncing: boolean
   migrating: boolean
+  /** 초기 로딩을 끝내지 못한 이유. 정상일 때는 null입니다. */
+  loadError: string | null
   today: DateKey
   actions: AppActions
 }
@@ -98,6 +121,11 @@ export function AppProvider({
   const [syncing, setSyncing] = useState(false)
   const [migrating, setMigrating] = useState(false)
   const [today, setToday] = useState<DateKey>(() => todayKey())
+  /**
+   * 로딩을 끝내지 못한 이유. 화면에 그대로 보여주기 위해 문자열로 들고 있습니다.
+   * 이게 없으면 실패가 '연결 중…' 화면으로만 나타나 원인을 알 수 없습니다.
+   */
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const uidRef = useRef<string | null>(null)
 
@@ -115,6 +143,11 @@ export function AppProvider({
       // v3는 여기서 console.error만 하고 넘어가 사용자는 저장된 줄 알았습니다.
       console.error('[dada] 동기화 오류', error)
       toast.error('동기화에 실패했습니다. 네트워크를 확인해주세요.')
+      // 구독이 실패하면 첫 스냅샷이 영영 오지 않습니다. 로딩 화면에 갇히지
+      // 않도록 반드시 상태를 풀고 원인을 남깁니다.
+      setLoadError(describeError(error))
+      setSyncing(false)
+      setStatus((prev) => (prev === 'loading' ? 'ready' : prev))
     },
     [toast],
   )
@@ -144,6 +177,7 @@ export function AppProvider({
 
       setStatus('loading')
       setSyncing(true)
+      setLoadError(null)
 
       void (async () => {
         try {
@@ -199,6 +233,7 @@ export function AppProvider({
           console.error('[dada] 초기화 실패', error)
           if (!disposed) {
             toast.error('데이터를 불러오지 못했습니다. 네트워크를 확인해주세요.')
+            setLoadError(describeError(error))
             setStatus('ready')
             setSyncing(false)
           }
@@ -220,6 +255,26 @@ export function AppProvider({
     if (theme === 'system') root.removeAttribute('data-theme')
     else root.setAttribute('data-theme', theme)
   }, [profile?.theme])
+
+  /**
+   * 로딩 워치독.
+   *
+   * 첫 스냅샷이 오지 않는 원인은 여러 가지입니다(규칙 거부, IndexedDB 잠금,
+   * 네트워크 차단). 어느 경우든 '연결 중…' 화면에 무한정 머무르지 않도록
+   * 시간 제한을 둡니다.
+   */
+  useEffect(() => {
+    if (status !== 'loading') return
+    const timer = window.setTimeout(() => {
+      setLoadError((prev) =>
+        prev ??
+        '서버 응답이 없습니다. 네트워크 연결, Firestore 보안 규칙, 브라우저의 저장소 차단 설정을 확인해주세요.',
+      )
+      setStatus('ready')
+      setSyncing(false)
+    }, LOAD_TIMEOUT_MS)
+    return () => window.clearTimeout(timer)
+  }, [status])
 
   const tagIndex = useMemo(() => buildTagIndex(categories, tags), [categories, tags])
 
@@ -372,10 +427,24 @@ export function AppProvider({
       offline,
       syncing,
       migrating,
+      loadError,
       today,
       actions,
     }),
-    [status, user, profile, entries, tagIndex, cycles, offline, syncing, migrating, today, actions],
+    [
+      status,
+      user,
+      profile,
+      entries,
+      tagIndex,
+      cycles,
+      offline,
+      syncing,
+      migrating,
+      loadError,
+      today,
+      actions,
+    ],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
