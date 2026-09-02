@@ -2,6 +2,10 @@ import type { JSX } from 'react'
 
 export type IconName =
   | 'chart'
+  | 'activity'
+  | 'barChart'
+  | 'leaf'
+  | 'zap'
   | 'pencil'
   | 'tag'
   | 'settings'
@@ -41,6 +45,21 @@ interface IconProps {
 
 const PATHS: Record<IconName, JSX.Element> = {
   chart: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />,
+  activity: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />,
+  barChart: (
+    <>
+      <line x1="6" y1="20" x2="6" y2="13" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="18" y1="20" x2="18" y2="9" />
+    </>
+  ),
+  leaf: (
+    <>
+      <path d="M11 20A7 7 0 0 1 4 13c0-5.5 4.5-9.5 16-9.5C20 15 15.5 20 11 20Z" />
+      <path d="M4.5 20.5C7 15 11.5 11 17 9" />
+    </>
+  ),
+  zap: <polygon points="13 2 4 14 11 14 10 22 20 10 13 10 13 2" />,
   pencil: (
     <>
       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />

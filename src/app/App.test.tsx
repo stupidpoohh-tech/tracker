@@ -147,8 +147,11 @@ describe('대시보드', () => {
     const repo = createFakeRepository({ entries: seedEntries(), tags, categories })
     renderApp(repo)
     await screen.findByRole('heading', { name: '대시보드' })
-    // 기본 30일 구간, 40일치 기록 → 30일 모두 기록됨
-    expect(await screen.findByText('30/30')).toBeTruthy()
+    // 기본 30일 구간, 40일치 기록 → 30일 모두 기록됨.
+    // 타일은 큰 숫자와 분모를 따로 렌더링합니다(시안의 '28/245' 형태).
+    const tile = (await screen.findByText('기록한 날')).closest('.stat-tile') as HTMLElement
+    expect(within(tile).getByText('30')).toBeTruthy()
+    expect(within(tile).getByText('/30')).toBeTruthy()
     expect(screen.getByText('평균 기분')).toBeTruthy()
   })
 
@@ -174,7 +177,31 @@ describe('대시보드', () => {
     renderApp(repo)
     await screen.findByRole('heading', { name: '대시보드' })
     await user.click(screen.getByRole('button', { name: '7일' }))
-    expect(await screen.findByText('7/7')).toBeTruthy()
+
+    const tile = (await screen.findByText('기록한 날')).closest('.stat-tile') as HTMLElement
+    await waitFor(() => expect(within(tile).getByText('/7')).toBeTruthy())
+    expect(within(tile).getByText('7')).toBeTruthy()
+  })
+
+  it('구간 선택이 세그먼트 컨트롤로 표시됩니다', async () => {
+    const repo = createFakeRepository({ entries: seedEntries(), tags, categories })
+    renderApp(repo)
+    await screen.findByRole('heading', { name: '대시보드' })
+    const group = screen.getByRole('group', { name: '표시 구간' })
+    expect(within(group).getAllByRole('button')).toHaveLength(5)
+    expect(within(group).getByRole('button', { name: '30일' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('기록이 많으면 더보기로 나머지를 펼칩니다', async () => {
+    const user = userEvent.setup()
+    const repo = createFakeRepository({ entries: seedEntries(), tags, categories })
+    renderApp(repo)
+    await screen.findByRole('heading', { name: '대시보드' })
+
+    const before = document.querySelectorAll('.record-row').length
+    expect(before).toBe(6)
+    await user.click(screen.getByRole('button', { name: /더보기/ }))
+    expect(document.querySelectorAll('.record-row').length).toBeGreaterThan(before)
   })
 })
 

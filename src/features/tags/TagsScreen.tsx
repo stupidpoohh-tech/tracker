@@ -105,8 +105,8 @@ export function TagsScreen() {
             {archivedCount > 0 ? ` · 보관 ${archivedCount}개` : ''}
           </p>
         </div>
-        <button type="button" className="btn btn-sm" onClick={() => setShowPresets(true)}>
-          <Icon name="plus" size={15} /> 세트 추가
+        <button type="button" className="btn btn-tint btn-sm" onClick={() => setShowPresets(true)}>
+          <Icon name="plus" size={16} strokeWidth={2.2} /> 세트 추가
         </button>
       </header>
 
@@ -164,9 +164,7 @@ export function TagsScreen() {
       {groups.map((group) => (
         <section key={group.id} style={{ marginBottom: 20 }}>
           <div className="row-between" style={{ marginBottom: 8 }}>
-            <p className="section-label" style={{ marginBottom: 0 }}>
-              {group.name}
-            </p>
+            <h2 style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em' }}>{group.name}</h2>
             {group.id !== orphanCategoryId && (
               <button
                 type="button"

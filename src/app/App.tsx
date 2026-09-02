@@ -16,8 +16,8 @@ import { SettingsScreen } from '@/features/settings/SettingsScreen'
 type Tab = 'dashboard' | 'insights' | 'tags' | 'settings'
 
 const TABS: { id: Tab; label: string; icon: IconName }[] = [
-  { id: 'dashboard', label: '대시보드', icon: 'chart' },
-  { id: 'insights', label: '인사이트', icon: 'sparkles' },
+  { id: 'dashboard', label: '대시보드', icon: 'activity' },
+  { id: 'insights', label: '인사이트', icon: 'barChart' },
   { id: 'tags', label: '태그', icon: 'tag' },
   { id: 'settings', label: '설정', icon: 'settings' },
 ]

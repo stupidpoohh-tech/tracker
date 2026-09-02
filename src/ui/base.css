@@ -49,7 +49,7 @@ a {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 ::-webkit-scrollbar {
@@ -121,19 +121,36 @@ a {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 20px 0 14px;
+  padding: 22px 0 14px;
 }
 
+/* 시안의 큰 제목. 화면 이름이 한눈에 들어와야 합니다. */
 .page-title {
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
 }
 
 .page-subtitle {
-  font-size: 13px;
+  font-size: 13.5px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+/* 제목 아래 기간 표시 겸 버튼 */
+.period-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 2px 0;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-2);
-  margin-top: 2px;
+}
+.period-button:hover {
+  color: var(--text);
 }
 
 .stack {
@@ -198,22 +215,48 @@ a {
 }
 
 .card-tight {
-  padding: 12px 14px;
+  padding: 13px 14px;
+}
+
+/* 시안의 굵은 소제목 + 오른쪽 보조 동작 */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 4px 0 10px;
+}
+
+.section-head h2 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.section-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.section-more:hover {
+  color: var(--accent);
 }
 
 .section-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-3);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   margin-bottom: 8px;
 }
 
 .hint {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-3);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .muted {
@@ -225,7 +268,102 @@ a {
   padding: 40px 16px;
   color: var(--text-3);
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.75;
+}
+
+/* ─── 통계 타일 ────────────────────────────────────────────────────────── */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
+  gap: 9px;
+}
+
+.stat-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 12px 13px;
+}
+
+.stat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: var(--accent-soft);
+  color: var(--accent-bright);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.stat-value {
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+}
+
+.stat-value .accent {
+  color: var(--accent-bright);
+}
+
+.stat-suffix {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  letter-spacing: -0.02em;
+}
+
+.stat-label {
+  font-size: 11.5px;
+  color: var(--text-3);
+  margin-top: 6px;
+  line-height: 1.4;
+  /* '평균 에너지'가 '평균 에…'로 잘리지 않도록 어절 단위로만 줄바꿈합니다. */
+  word-break: keep-all;
+}
+
+/* ─── 세그먼트 컨트롤 ──────────────────────────────────────────────────── */
+
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.segmented::-webkit-scrollbar {
+  display: none;
+}
+
+.segmented-item {
+  flex: 1 0 auto;
+  min-height: 36px;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+  transition:
+    background 0.15s var(--ease),
+    color 0.15s var(--ease);
+}
+.segmented-item:hover {
+  color: var(--text);
+}
+.segmented-item[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
 }
 
 /* ─── 버튼 ─────────────────────────────────────────────────────────────── */
@@ -266,6 +404,17 @@ a {
   border-color: var(--accent-hover);
 }
 
+/* 시안의 '오늘 기록' 버튼 — 연한 강조 배경 + 강조색 글자 */
+.btn-tint {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  font-weight: 700;
+}
+.btn-tint:hover:not(:disabled) {
+  background: var(--accent-border);
+}
+
 .btn-ghost {
   background: transparent;
   border-color: transparent;
@@ -286,8 +435,8 @@ a {
 }
 
 .btn-sm {
-  min-height: 34px;
-  padding: 6px 12px;
+  min-height: 36px;
+  padding: 7px 13px;
   font-size: 13px;
   border-radius: var(--radius-sm);
 }
@@ -361,7 +510,7 @@ a {
   font-weight: 500;
   background: var(--surface);
   color: var(--text-2);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   white-space: nowrap;
   transition:
     background 0.12s var(--ease),
@@ -372,11 +521,12 @@ a {
   border-color: var(--border-strong);
 }
 .chip[aria-pressed='true'],
+.chip[aria-selected='true'],
 .chip.is-active {
   background: var(--accent-soft);
-  border-color: var(--accent);
+  border-color: var(--accent-border);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .chip-count {
@@ -387,8 +537,7 @@ a {
   background: var(--surface-2);
   color: var(--text-3);
 }
-.chip[aria-pressed='true'] .chip-count,
-.chip.is-active .chip-count {
+.chip[aria-pressed='true'] .chip-count {
   background: var(--accent);
   color: var(--on-accent);
 }
@@ -397,12 +546,99 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
+  padding: 4px 10px;
   border-radius: var(--radius-pill);
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
   line-height: 1.7;
   white-space: nowrap;
+}
+
+/* ─── 기록 목록 행 ─────────────────────────────────────────────────────── */
+
+.record-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0 14px;
+}
+
+.record-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 0;
+  text-align: left;
+  border-top: 1px solid var(--border);
+}
+.record-row:first-child {
+  border-top: none;
+}
+
+.record-date {
+  flex-shrink: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.record-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.record-memo {
+  font-size: 13px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-chevron {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+/* ─── 범례 ─────────────────────────────────────────────────────────────── */
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-note {
+  font-size: 11.5px;
+  color: var(--text-3);
 }
 
 /* ─── 알림 ─────────────────────────────────────────────────────────────── */
@@ -483,7 +719,7 @@ a {
   inset: auto 0 0 0;
   z-index: 200;
   display: flex;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -503,14 +739,14 @@ a {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
   color: var(--text-3);
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 500;
   transition: color 0.15s var(--ease);
 }
 .nav-item[aria-current='page'] {
-  color: var(--accent);
+  color: var(--accent-bright);
   font-weight: 700;
 }
 
@@ -520,7 +756,7 @@ a {
   position: fixed;
   inset: 0;
   z-index: 400;
-  background: rgb(0 0 0 / 40%);
+  background: rgb(10 16 13 / 45%);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -597,7 +833,7 @@ a {
   gap: 8px;
   font-size: 15px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .landing-mark {
@@ -618,10 +854,10 @@ a {
 }
 
 .landing-hero h1 {
-  font-size: clamp(26px, 7vw, 34px);
-  font-weight: 700;
+  font-size: clamp(27px, 7.2vw, 35px);
+  font-weight: 800;
   line-height: 1.32;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.035em;
 }
 
 .landing-hero .lede {
@@ -645,14 +881,13 @@ a {
 .landing-section {
   padding: 28px 0;
   border-top: 1px solid var(--border);
-  /* 상단 내비가 sticky라 앵커 이동 시 제목이 가려지는 것을 막습니다. */
   scroll-margin-top: 64px;
 }
 
 .landing-section h2 {
-  font-size: 19px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 .landing-section .lede {
@@ -662,7 +897,6 @@ a {
   margin-top: 8px;
 }
 
-/* 실제 화면을 담는 액자 */
 .preview-frame {
   position: relative;
   margin-top: 16px;
@@ -680,7 +914,6 @@ a {
   scrollbar-width: thin;
 }
 
-/* 액자 안에서는 하단 내비 여백이 필요 없습니다. */
 .preview-viewport .page {
   padding-bottom: 20px;
   max-width: none;
@@ -720,11 +953,11 @@ a {
 }
 
 .feature-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-bright);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -732,9 +965,10 @@ a {
 }
 
 .feature-card h3 {
-  font-size: 14.5px;
+  font-size: 15px;
   font-weight: 700;
   margin-bottom: 5px;
+  letter-spacing: -0.02em;
 }
 
 .feature-card p {

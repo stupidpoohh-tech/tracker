@@ -4,11 +4,7 @@ import type { DateKey } from '@/domain/date'
 import { fullLabel, relativeLabel } from '@/domain/date'
 import type { PhaseIndex } from '@/domain/cycle'
 import { PHASE_LABELS, buildPhaseIndex, computeCycleStats, getCycleStatus } from '@/domain/cycle'
-import {
-  computeOverview,
-  entriesInRange,
-  tagFrequency,
-} from '@/domain/insights'
+import { computeOverview, entriesInRange, tagFrequency } from '@/domain/insights'
 import {
   energyLabel,
   isMixedState,
@@ -17,7 +13,7 @@ import {
   sleepLabel,
   type Entry,
 } from '@/domain/models'
-import { Icon } from '@/ui/Icon'
+import { Icon, type IconName } from '@/ui/Icon'
 import { Spinner } from '@/ui/components'
 import {
   RANGE_PRESETS,
@@ -29,16 +25,32 @@ import {
 } from './range'
 import { ChartLegend, TrendChart } from './TrendChart'
 
-function StatTile({ value, label, tone }: { value: string; label: string; tone: string }) {
+/** 처음에 보여줄 기록 수. 나머지는 '더보기'로 펼칩니다. */
+const RECENT_PREVIEW = 6
+
+function StatTile({
+  icon,
+  value,
+  suffix,
+  label,
+  highlight,
+}: {
+  icon: IconName
+  value: string
+  suffix?: string
+  label: string
+  highlight?: boolean
+}) {
   return (
-    <div
-      className="card card-tight"
-      style={{ textAlign: 'center', background: `var(--${tone}-soft)`, borderColor: 'transparent' }}
-    >
-      <div style={{ fontSize: 22, fontWeight: 700, color: `var(--${tone})`, lineHeight: 1.2 }}>
-        {value}
+    <div className="stat-tile">
+      <span className="stat-icon">
+        <Icon name={icon} size={18} />
+      </span>
+      <div className="stat-value">
+        <span className={highlight ? 'accent' : undefined}>{value}</span>
+        {suffix && <span className="stat-suffix">{suffix}</span>}
       </div>
-      <div style={{ fontSize: 11.5, color: 'var(--text-2)', marginTop: 2 }}>{label}</div>
+      <div className="stat-label">{label}</div>
     </div>
   )
 }
@@ -46,9 +58,14 @@ function StatTile({ value, label, tone }: { value: string; label: string; tone: 
 function DayDetail({ entry, phaseLabel }: { entry: Entry; phaseLabel: string | null }) {
   const { tagIndex } = useApp()
   const fields: { label: string; value: string; color: string }[] = []
-  if (entry.mood) fields.push({ label: '기분', value: `${entry.mood} · ${moodLabel(entry.mood)}`, color: 'var(--mood)' })
+  if (entry.mood)
+    fields.push({ label: '기분', value: `${entry.mood} · ${moodLabel(entry.mood)}`, color: 'var(--mood)' })
   if (entry.energy)
-    fields.push({ label: '에너지', value: `${entry.energy} · ${energyLabel(entry.energy)}`, color: 'var(--energy)' })
+    fields.push({
+      label: '에너지',
+      value: `${entry.energy} · ${energyLabel(entry.energy)}`,
+      color: 'var(--energy)',
+    })
   if (entry.sleep) {
     const hours = entry.sleepHours != null ? ` · ${entry.sleepHours}시간` : ''
     fields.push({ label: '수면', value: `${sleepLabel(entry.sleep)}${hours}`, color: 'var(--text)' })
@@ -64,16 +81,16 @@ function DayDetail({ entry, phaseLabel }: { entry: Entry; phaseLabel: string | n
           {fields.map((field) => (
             <div
               key={field.label}
-              style={{ background: 'var(--surface-2)', borderRadius: 8, padding: '6px 10px' }}
+              style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '7px 11px' }}
             >
-              <div style={{ fontSize: 10, color: 'var(--text-3)' }}>{field.label}</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: field.color }}>{field.value}</div>
+              <div style={{ fontSize: 10.5, color: 'var(--text-3)' }}>{field.label}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: field.color }}>{field.value}</div>
             </div>
           ))}
         </div>
       )}
       {isMixedState(entry) && (
-        <div className="row" style={{ gap: 6, color: 'var(--mixed)', fontSize: 12, fontWeight: 600 }}>
+        <div className="row" style={{ gap: 6, color: 'var(--mixed)', fontSize: 12.5, fontWeight: 600 }}>
           <Icon name="alert" size={14} />
           혼재 상태 — 기분·에너지 차이 {Math.abs((entry.mood ?? 0) - (entry.energy ?? 0))}
         </div>
@@ -81,7 +98,11 @@ function DayDetail({ entry, phaseLabel }: { entry: Entry; phaseLabel: string | n
       {tags.length > 0 && (
         <div className="row wrap" style={{ gap: 5 }}>
           {tags.map((name) => (
-            <span key={name} className="badge" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+            <span
+              key={name}
+              className="badge"
+              style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
+            >
               {name}
             </span>
           ))}
@@ -103,6 +124,7 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
   const [offset, setOffset] = useState(0)
   const [custom, setCustom] = useState(() => defaultCustomRange(today))
   const [selected, setSelected] = useState<DateKey | null>(null)
+  const [expanded, setExpanded] = useState(false)
 
   const modules = profile?.modules ?? { mood: true, energy: true, sleep: true, cycle: false }
 
@@ -122,7 +144,10 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
   )
 
   const ovulationMarks = useMemo(
-    () => Object.values(entries).filter((e) => e.ovulationMark).map((e) => e.date),
+    () =>
+      Object.values(entries)
+        .filter((e) => e.ovulationMark)
+        .map((e) => e.date),
     [entries],
   )
 
@@ -151,9 +176,10 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
   const topTags = useMemo(() => tagFrequency(rangeEntries, tagIndex, 8), [rangeEntries, tagIndex])
 
   const recent = useMemo(
-    () => [...rangeEntries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20),
+    () => [...rangeEntries].sort((a, b) => b.date.localeCompare(a.date)),
     [rangeEntries],
   )
+  const visibleRecent = expanded ? recent.slice(0, 60) : recent.slice(0, RECENT_PREVIEW)
 
   const changePreset = (next: RangePreset): void => {
     setPreset(next)
@@ -174,32 +200,38 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
               </span>
             )}
           </div>
-          <p className="page-subtitle">{range.label}</p>
+          <button
+            type="button"
+            className="period-button"
+            onClick={() => changePreset(preset === 'custom' ? '30' : 'custom')}
+            aria-label="기간 직접 설정"
+          >
+            {range.label}
+            <Icon name="chevronDown" size={15} />
+          </button>
         </div>
-        <button type="button" className="btn btn-primary btn-sm" onClick={() => onEdit(today)}>
-          <Icon name="plus" size={15} /> 오늘 기록
+        <button type="button" className="btn btn-tint btn-sm" onClick={() => onEdit(today)}>
+          <Icon name="plus" size={16} strokeWidth={2.2} /> 오늘 기록
         </button>
       </header>
 
-      {/* 구간 선택 */}
-      <div className="scroll-x" style={{ marginBottom: 10 }}>
-        <div className="row" style={{ gap: 6, paddingBottom: 2 }}>
-          {RANGE_PRESETS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className="chip"
-              aria-pressed={preset === item.id}
-              onClick={() => changePreset(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+      {/* 구간 선택 — 시안의 세그먼트 컨트롤 */}
+      <div className="segmented" role="group" aria-label="표시 구간">
+        {RANGE_PRESETS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className="segmented-item"
+            aria-pressed={preset === item.id}
+            onClick={() => changePreset(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
 
       {preset === 'custom' && (
-        <div className="card card-tight row" style={{ gap: 8, marginBottom: 10 }}>
+        <div className="card card-tight row" style={{ gap: 8, marginTop: 10 }}>
           <input
             className="input"
             type="date"
@@ -224,7 +256,7 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
       )}
 
       {preset !== 'custom' && (
-        <div className="row" style={{ justifyContent: 'center', gap: 14, marginBottom: 10 }}>
+        <div className="row" style={{ justifyContent: 'center', gap: 14, margin: '12px 0 4px' }}>
           <button
             type="button"
             className="btn btn-ghost btn-sm"
@@ -234,7 +266,7 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
           >
             <Icon name="chevronLeft" size={16} />
           </button>
-          <span style={{ fontSize: 12, color: 'var(--text-2)', minWidth: 72, textAlign: 'center' }}>
+          <span style={{ fontSize: 13, color: 'var(--text-2)', minWidth: 74, textAlign: 'center' }}>
             {offset === 0 ? '현재' : preset === 'year' ? range.label : `${offset}구간 전`}
           </span>
           <button
@@ -249,55 +281,62 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
         </div>
       )}
 
-      {/* 요약 */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(84px, 1fr))',
-          gap: 8,
-          marginBottom: 14,
-        }}
-      >
+      {/* 요약 타일 */}
+      <div className="stat-grid" style={{ margin: '12px 0 14px' }}>
         <StatTile
-          value={`${overview.loggedDays}/${overview.totalDays}`}
+          icon="calendar"
+          value={String(overview.loggedDays)}
+          suffix={`/${overview.totalDays}`}
           label="기록한 날"
-          tone="accent"
+          highlight
         />
         {modules.mood && (
           <StatTile
+            icon="leaf"
             value={overview.moodAvg != null ? overview.moodAvg.toFixed(1) : '—'}
             label="평균 기분"
-            tone="accent"
           />
         )}
         {modules.energy && (
           <StatTile
+            icon="zap"
             value={overview.energyAvg != null ? overview.energyAvg.toFixed(1) : '—'}
             label="평균 에너지"
-            tone="teal"
           />
         )}
-        <StatTile value={`${overview.currentStreak}일`} label="연속 기록" tone="amber" />
+        <StatTile icon="sun" value={`${overview.currentStreak}일`} label="연속 기록" />
       </div>
 
       {/* 주기 상태 */}
       {cycleStatus && cycleStatus.cycleDay != null && (
-        <div className="card card-tight row-between" style={{ marginBottom: 14, gap: 10 }}>
-          <span className="row" style={{ gap: 8 }}>
-            <span style={{ color: 'var(--phase-period)' }}>
-              <Icon name="droplet" size={17} />
+        <div className="card card-tight row" style={{ marginBottom: 14, gap: 11 }}>
+          <span
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 10,
+              background: 'var(--rose-soft)',
+              color: 'var(--phase-period)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Icon name="droplet" size={17} />
+          </span>
+          <span className="grow">
+            <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700 }}>
+              주기 {cycleStatus.cycleDay}일차
+              {cycleStatus.phase ? ` · ${PHASE_LABELS[cycleStatus.phase]}` : ''}
             </span>
-            <span>
-              <span style={{ display: 'block', fontSize: 13, fontWeight: 600 }}>
-                주기 {cycleStatus.cycleDay}일차
-                {cycleStatus.phase ? ` · ${PHASE_LABELS[cycleStatus.phase]}` : ''}
-              </span>
-              <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-3)' }}>
-                {cycleStatus.daysOverdue != null
-                  ? `예상일보다 ${cycleStatus.daysOverdue}일 지났습니다`
-                  : `다음 예상일까지 ${cycleStatus.daysUntilNextPeriod}일`}
-                {cycleStatus.stats.usesDefaults ? ' (28일 기본값)' : ` · 평균 ${cycleStatus.stats.averageCycleLength}일`}
-              </span>
+            <span style={{ display: 'block', fontSize: 12, color: 'var(--text-3)', marginTop: 1 }}>
+              {cycleStatus.daysOverdue != null
+                ? `예상일보다 ${cycleStatus.daysOverdue}일 지났습니다`
+                : `다음 예상일까지 ${cycleStatus.daysUntilNextPeriod}일`}
+              {cycleStatus.stats.usesDefaults
+                ? ' · 28일 기본값'
+                : ` · 평균 ${cycleStatus.stats.averageCycleLength}일`}
             </span>
           </span>
         </div>
@@ -305,7 +344,7 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
 
       {/* 차트 */}
       <section className="card" style={{ marginBottom: 16 }}>
-        <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 12 }}>
           <ChartLegend modules={modules} showCycle={modules.cycle} />
         </div>
         <TrendChart
@@ -324,8 +363,8 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
         <section className="card" style={{ marginBottom: 16, animation: 'fade-in 0.2s var(--ease)' }}>
           <div className="row-between" style={{ marginBottom: 10 }}>
             <div>
-              <span style={{ fontSize: 14, fontWeight: 700 }}>{fullLabel(selected)}</span>
-              <span style={{ fontSize: 11.5, color: 'var(--text-3)', marginLeft: 6 }}>
+              <span style={{ fontSize: 14.5, fontWeight: 700 }}>{fullLabel(selected)}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 6 }}>
                 {relativeLabel(selected, today)}
               </span>
             </div>
@@ -347,17 +386,19 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
       {/* 태그 빈도 */}
       {topTags.length > 0 && (
         <section style={{ marginBottom: 16 }}>
-          <p className="section-label">이 기간 태그 빈도</p>
+          <div className="section-head">
+            <h2>이 기간 태그</h2>
+          </div>
           <div className="card stack-sm">
             {topTags.map((tag) => {
               const max = topTags[0]?.count ?? 1
               return (
-                <div key={tag.tagId} className="row" style={{ gap: 8 }}>
+                <div key={tag.tagId} className="row" style={{ gap: 10 }}>
                   <span
                     style={{
-                      fontSize: 12,
+                      fontSize: 12.5,
                       color: 'var(--text-2)',
-                      width: 118,
+                      width: 112,
                       flexShrink: 0,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -369,20 +410,32 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
                   </span>
                   <span
                     className="grow"
-                    style={{ height: 12, background: 'var(--surface-2)', borderRadius: 4, overflow: 'hidden' }}
+                    style={{
+                      height: 10,
+                      background: 'var(--surface-2)',
+                      borderRadius: 999,
+                      overflow: 'hidden',
+                    }}
                   >
                     <span
                       style={{
                         display: 'block',
                         width: `${(tag.count / max) * 100}%`,
                         height: '100%',
-                        background: 'var(--accent)',
-                        opacity: 0.65,
-                        borderRadius: 4,
+                        background: 'var(--accent-bright)',
+                        borderRadius: 999,
                       }}
                     />
                   </span>
-                  <span style={{ fontSize: 11.5, color: 'var(--text-3)', width: 22, textAlign: 'right' }}>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--text-3)',
+                      width: 20,
+                      textAlign: 'right',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
                     {tag.count}
                   </span>
                 </div>
@@ -392,9 +445,18 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
         </section>
       )}
 
-      {/* 최근 기록 */}
+      {/* 기록 목록 */}
       <section>
-        <p className="section-label">이 기간 기록</p>
+        <div className="section-head">
+          <h2>이 기간 기록</h2>
+          {recent.length > RECENT_PREVIEW && (
+            <button type="button" className="section-more" onClick={() => setExpanded((v) => !v)}>
+              {expanded ? '접기' : '더보기'}
+              <Icon name={expanded ? 'chevronDown' : 'chevronRight'} size={14} />
+            </button>
+          )}
+        </div>
+
         {recent.length === 0 ? (
           <p className="empty">
             이 구간에는 기록이 없습니다.
@@ -402,97 +464,69 @@ export function Dashboard({ onEdit }: { onEdit: (date: DateKey) => void }) {
             오늘 기록부터 시작해보세요.
           </p>
         ) : (
-          <div className="card" style={{ padding: '0 14px' }}>
-            {recent.map((entry, index) => {
-              const phase = phaseIndex.get(entry.date)
+          <div className="record-list">
+            {visibleRecent.map((entry) => {
               const tags = resolveEntryTagIds(entry, tagIndex)
+              const firstTag = tags[0] ? tagIndex.byId.get(tags[0])?.name : null
+              const summary = entry.memo || (firstTag ? tags.map((id) => tagIndex.byId.get(id)?.name ?? id).join(' ') : '')
               return (
                 <button
                   key={entry.date}
                   type="button"
+                  className="record-row"
                   onClick={() => setSelected(selected === entry.date ? null : entry.date)}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    gap: 12,
-                    alignItems: 'flex-start',
-                    padding: '11px 0',
-                    borderTop: index === 0 ? 'none' : '1px solid var(--border)',
-                    textAlign: 'left',
-                  }}
                 >
-                  <span style={{ width: 46, flexShrink: 0, paddingTop: 1 }}>
-                    <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-3)' }}>
-                      {entry.date.slice(5).replace('-', '/')}
-                    </span>
-                    {entry.date === today && (
-                      <span style={{ display: 'block', fontSize: 9.5, color: 'var(--accent)', fontWeight: 700 }}>
-                        오늘
+                  <span className="record-date">{entry.date.slice(5).replace('-', '/')}</span>
+                  <span className="record-body">
+                    {entry.mood && (
+                      <span
+                        className="badge"
+                        style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                      >
+                        기분 {entry.mood}
                       </span>
                     )}
-                    {phase && (
+                    {entry.energy && (
                       <span
+                        className="badge"
+                        style={{ background: 'var(--teal-soft)', color: 'var(--teal)' }}
+                      >
+                        에너지 {entry.energy}
+                      </span>
+                    )}
+                    {entry.sleep && (
+                      <span
+                        className="badge"
                         style={{
-                          display: 'block',
-                          fontSize: 9,
-                          color: `var(--phase-${phase.phase === 'premenstrual' ? 'premenstrual' : phase.phase})`,
-                          fontWeight: 600,
+                          background:
+                            entry.sleep === 'little'
+                              ? 'var(--rose-soft)'
+                              : entry.sleep === 'good'
+                                ? 'var(--success-soft)'
+                                : 'var(--surface-2)',
+                          color:
+                            entry.sleep === 'little'
+                              ? 'var(--rose)'
+                              : entry.sleep === 'good'
+                                ? 'var(--success)'
+                                : 'var(--text-2)',
                         }}
                       >
-                        {PHASE_LABELS[phase.phase]}
+                        {sleepLabel(entry.sleep)}
                       </span>
                     )}
+                    {isMixedState(entry) && (
+                      <span
+                        className="badge"
+                        style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}
+                      >
+                        혼재
+                      </span>
+                    )}
+                    {summary && <span className="record-memo">{summary}</span>}
                   </span>
-                  <span className="grow" style={{ minWidth: 0 }}>
-                    <span className="row wrap" style={{ gap: 5 }}>
-                      {entry.mood && (
-                        <span className="badge" style={{ background: 'var(--accent-soft)', color: 'var(--mood)' }}>
-                          기분 {entry.mood}
-                        </span>
-                      )}
-                      {entry.energy && (
-                        <span className="badge" style={{ background: 'var(--teal-soft)', color: 'var(--energy)' }}>
-                          에너지 {entry.energy}
-                        </span>
-                      )}
-                      {isMixedState(entry) && (
-                        <span className="badge" style={{ background: 'var(--amber-soft)', color: 'var(--mixed)' }}>
-                          혼재
-                        </span>
-                      )}
-                      {entry.sleep && (
-                        <span className="badge" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
-                          {sleepLabel(entry.sleep)}
-                        </span>
-                      )}
-                      {tags.slice(0, 3).map((id) => (
-                        <span
-                          key={id}
-                          className="badge"
-                          style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
-                        >
-                          {tagIndex.byId.get(id)?.name ?? id}
-                        </span>
-                      ))}
-                      {tags.length > 3 && (
-                        <span className="badge" style={{ color: 'var(--text-3)' }}>+{tags.length - 3}</span>
-                      )}
-                    </span>
-                    {entry.memo && (
-                      <span
-                        style={{
-                          display: 'block',
-                          fontSize: 11.5,
-                          color: 'var(--text-3)',
-                          marginTop: 4,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {entry.memo}
-                      </span>
-                    )}
+                  <span className="record-chevron">
+                    <Icon name="chevronRight" size={16} />
                   </span>
                 </button>
               )

@@ -37,7 +37,7 @@ function GroupTable({ title, groups, note }: { title: string; groups: GroupSumma
   if (usable.length === 0) return null
   return (
     <section className="card stack-sm">
-      <h3 style={{ fontSize: 14, fontWeight: 700 }}>{title}</h3>
+      <h3 style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em' }}>{title}</h3>
       <div className="stack-sm">
         {usable.map((group) => (
           <div key={group.key} className="row" style={{ gap: 10 }}>
@@ -129,17 +129,17 @@ export function InsightsScreen() {
             최근 {windowDays}일 중 {overview.loggedDays}일 기록
           </p>
         </div>
-        <button type="button" className="btn btn-sm" onClick={() => setShowReport(true)}>
+        <button type="button" className="btn btn-tint btn-sm" onClick={() => setShowReport(true)}>
           <Icon name="print" size={15} /> 진료 리포트
         </button>
       </header>
 
-      <div className="row" style={{ gap: 6, marginBottom: 16 }}>
+      <div className="segmented" role="group" aria-label="분석 기간" style={{ marginBottom: 16 }}>
         {WINDOW_OPTIONS.map((option) => (
           <button
             key={option.days}
             type="button"
-            className="chip"
+            className="segmented-item"
             aria-pressed={windowDays === option.days}
             onClick={() => setWindowDays(option.days)}
           >
@@ -173,10 +173,12 @@ export function InsightsScreen() {
               }}
             >
               <div className="row" style={{ gap: 8, marginBottom: 6 }}>
-                <span style={{ color: 'var(--accent)' }}>
+                <span style={{ color: 'var(--accent-bright)' }}>
                   <Icon name={KIND_ICON[card.kind]} size={16} />
                 </span>
-                <h2 style={{ fontSize: 14.5, fontWeight: 700, lineHeight: 1.45 }}>{card.title}</h2>
+                <h2 style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.45, letterSpacing: '-0.02em' }}>
+                  {card.title}
+                </h2>
               </div>
               <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.7 }}>{card.body}</p>
               <p className="hint" style={{ marginTop: 6 }}>
