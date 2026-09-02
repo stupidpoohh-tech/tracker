@@ -7,7 +7,6 @@ import { computeOverview, entriesInRange } from '@/domain/insights'
 import {
   ENERGY_LABELS,
   MOOD_LABELS,
-  SCALE_VALUES,
   emptyEntry,
   energyLabel,
   moodLabel,
@@ -25,6 +24,7 @@ import {
 import type { Observation } from '@/domain/models'
 import { Icon } from '@/ui/Icon'
 import { Spinner } from '@/ui/components'
+import { ScaleField } from '@/ui/ScaleField'
 import { PatternEvidence } from '@/features/patterns/PatternPieces'
 
 /** 홈에서 요약 비교에 쓰는 기간. */
@@ -53,42 +53,6 @@ function observationBody(pattern: Pattern | null, observation: Observation): str
   return pattern.summary
 }
 
-function ScaleRow({
-  label,
-  value,
-  labels,
-  onPick,
-}: {
-  label: string
-  value: Scale | undefined
-  labels: readonly string[]
-  onPick: (next: Scale | undefined) => void
-}) {
-  return (
-    <div style={{ marginTop: 14 }}>
-      <div className="row-between" style={{ marginBottom: 7 }}>
-        <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{label}</span>
-        <span className="meta">{value ? labels[value - 1] : ''}</span>
-      </div>
-      <div className="quick-scale" role="radiogroup" aria-label={label}>
-        {SCALE_VALUES.map((v) => (
-          <button
-            key={v}
-            type="button"
-            role="radio"
-            aria-checked={value === v}
-            aria-label={`${label} ${v} — ${labels[v - 1]}`}
-            className="quick-dot"
-            onClick={() => onPick(value === v ? undefined : v)}
-          >
-            {v}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 /**
  * 10초 기록.
  *
@@ -106,6 +70,10 @@ function QuickLog({ onOpenFull }: { onOpenFull: (date: DateKey) => void }) {
       try {
         const base = existing ?? emptyEntry(today)
         await actions.saveEntry({ ...base, ...next, date: today })
+      } catch {
+        // 실패는 store의 guard가 이미 사용자에게 알립니다. 예시 화면처럼 저장을
+        // 막아 둔 곳에서도 던지므로, 여기서 삼키지 않으면 처리되지 않은 거부가
+        // 콘솔에 남습니다.
       } finally {
         setSaving(false)
       }
@@ -151,18 +119,26 @@ function QuickLog({ onOpenFull }: { onOpenFull: (date: DateKey) => void }) {
         <h2 className="section-title">오늘은 어땠나요?</h2>
         {saving && <Spinner size={13} />}
       </div>
-      <ScaleRow
-        label="기분"
-        value={existing?.mood}
-        labels={MOOD_LABELS}
-        onPick={(mood) => void patch({ mood })}
-      />
-      <ScaleRow
-        label="에너지"
-        value={existing?.energy}
-        labels={ENERGY_LABELS}
-        onPick={(energy) => void patch({ energy })}
-      />
+      <div style={{ marginTop: 14 }}>
+        <ScaleField
+          label="기분"
+          value={existing?.mood}
+          labels={MOOD_LABELS}
+          tint="var(--series-mood)"
+          size="compact"
+          onPick={(mood) => void patch({ mood })}
+        />
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <ScaleField
+          label="에너지"
+          value={existing?.energy}
+          labels={ENERGY_LABELS}
+          tint="var(--series-energy)"
+          size="compact"
+          onPick={(energy) => void patch({ energy })}
+        />
+      </div>
       <button
         type="button"
         className="btn btn-ghost btn-sm"

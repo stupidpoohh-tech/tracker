@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import { ToastProvider } from '@/ui/components'
 import { AppProvider } from '@/app/store'
 import { App } from '@/app/App'
-import { todayKey } from '@/domain/date'
+import { addDays, todayKey } from '@/domain/date'
 import { buildTagIndex } from '@/domain/models'
 import { buildInsights, computeOverview } from '@/domain/insights'
 import { buildPhaseIndex } from '@/domain/cycle'
@@ -72,8 +72,9 @@ describe('예시 데이터', () => {
     expect(demo.categories).toHaveLength(DEMO_CATEGORIES.length)
   })
 
-  it('오늘 기록이 반드시 들어 있습니다', () => {
-    expect(demo.entries.some((e) => e.date === today)).toBe(true)
+  it('오늘은 비워 두어 방문자가 기록 컨트롤을 보게 합니다', () => {
+    expect(demo.entries.some((e) => e.date === today)).toBe(false)
+    expect(demo.entries.some((e) => e.date === addDays(today, -1))).toBe(true)
   })
 
   it('시드가 고정되어 매번 같은 결과를 냅니다', () => {
@@ -189,7 +190,7 @@ describe('로그인·회원가입 진입', () => {
     renderApp()
     await screen.findByRole('heading', { name: '오늘' })
     // 예시 화면에서는 저장이 되지 않고 가입으로 안내합니다.
-    await user.click(screen.getByRole('button', { name: '수정' }))
+    await user.click(screen.getByRole('radio', { name: '기분 4 — 좋음' }))
     expect(await screen.findByRole('heading', { name: '계정 만들기' })).toBeTruthy()
   })
 

@@ -182,8 +182,13 @@ export function buildDemoData(today: DateKey): DemoData {
   for (let i = 0; i < DEMO_DAYS; i++) {
     const date = addDays(start, i)
 
-    // 실제 사용자처럼 군데군데 빠뜨립니다. 100% 채워진 표는 오히려 덜 믿음직합니다.
-    if (rng() > 0.82 && date !== today) continue
+    // 오늘은 비워 둡니다. 방문자가 첫 화면에서 실제로 보게 될 것이 '10초 기록'
+    // 컨트롤이어야 합니다. 오늘까지 채워두면 '오늘 기록 완료'만 보여서, 이 서비스에
+    // 무엇을 어떻게 입력하는지가 화면에서 사라집니다.
+    if (date === today) continue
+    // 그 밖에는 실제 사용자처럼 군데군데 빠뜨립니다. 100% 채워진 표는 오히려 덜
+    // 믿음직합니다.
+    if (rng() > 0.82) continue
 
     const untilNext = dayOffsetToNextStart(date)
     const isPremenstrual = untilNext != null && untilNext >= 1 && untilNext <= 5

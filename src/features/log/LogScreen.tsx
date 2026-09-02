@@ -17,8 +17,8 @@ import {
 import { isRiskTagName } from '@/domain/tagPresets'
 import { Icon } from '@/ui/Icon'
 import { ConfirmSheet, Spinner, useToast } from '@/ui/components'
+import { ScaleField } from '@/ui/ScaleField'
 import { CrisisResources } from '@/features/safety/CrisisResources'
-import { ScalePicker } from './ScalePicker'
 import { TagPicker } from './TagPicker'
 
 const AUTOSAVE_DELAY_MS = 700
@@ -328,24 +328,28 @@ export function LogScreen({
       <div className="stack">
         {modules.mood && (
           <LogSection title="기분" optional="선택">
-            <ScalePicker
-              name="기분"
+            <ScaleField
+              label="기분"
               value={draft.mood}
               labels={MOOD_LABELS}
-              accent="var(--mood)"
-              onChange={(mood) => update({ mood: mood as Scale | undefined })}
+              tint="var(--series-mood)"
+              hideName
+              hint="선택하지 않으면 기록되지 않습니다"
+              onPick={(mood) => update({ mood: mood as Scale | undefined })}
             />
           </LogSection>
         )}
 
         {modules.energy && (
           <LogSection title="에너지" optional="선택">
-            <ScalePicker
-              name="에너지"
+            <ScaleField
+              label="에너지"
               value={draft.energy}
               labels={ENERGY_LABELS}
-              accent="var(--energy)"
-              onChange={(energy) => update({ energy: energy as Scale | undefined })}
+              tint="var(--series-energy)"
+              hideName
+              hint="선택하지 않으면 기록되지 않습니다"
+              onPick={(energy) => update({ energy: energy as Scale | undefined })}
             />
           </LogSection>
         )}
