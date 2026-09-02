@@ -39,5 +39,5 @@ export const firebaseConfig = {
 }
 
 export const APP_VERSION = '4.0.0'
-export const TERMS_VERSION = '2026-08-01'
-export const PRIVACY_VERSION = '2026-08-01'
+export const TERMS_VERSION = '2026-09-02'
+export const PRIVACY_VERSION = '2026-09-02'

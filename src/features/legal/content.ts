@@ -1,14 +1,17 @@
 /**
  * 약관·방침 본문.
  *
- * ⚠️ 배포 전 확인: 대괄호로 표시된 항목은 실제 운영자 정보로 채워야 합니다.
- * 임의로 지어내지 않고 자리만 만들어 두었습니다. 정신건강·생리주기 정보는
- * 개인정보보호법상 민감정보에 해당하므로, 별도 동의와 처리방침 고지가
- * 형식이 아니라 요건입니다. 실제 서비스 개시 전에 법률 검토를 받으시기 바랍니다.
+ * 정신건강·생리주기 정보는 개인정보보호법상 민감정보에 해당하므로, 별도 동의와
+ * 처리방침 고지가 형식이 아니라 요건입니다. 문안은 일반적인 형식을 따랐을 뿐
+ * 법률 검토를 거친 것이 아니므로, 서비스를 본격적으로 운영하기 전에 검토를
+ * 받으시기를 권합니다.
+ *
+ * 운영자 정보를 바꾸면 아래 version도 함께 올리고 `lib/env.ts`의 값과 맞춰
+ * 두시기 바랍니다. 동의 기록이 어느 문안에 대한 것인지 남기기 위한 값입니다.
  */
 
-export const OPERATOR_PLACEHOLDER = '[운영자명]'
-export const CONTACT_PLACEHOLDER = '[문의 이메일]'
+export const OPERATOR_NAME = '이다원'
+export const CONTACT_EMAIL = 'stupidpoohh@gmail.com'
 
 export interface LegalSection {
   heading: string
@@ -28,12 +31,12 @@ export const MEDICAL_DISCLAIMER =
 export const TERMS: LegalDocument = {
   id: 'terms',
   title: '이용약관',
-  version: '2026-08-01',
+  version: '2026-09-02',
   sections: [
     {
       heading: '제1조 (목적)',
       paragraphs: [
-        `이 약관은 ${OPERATOR_PLACEHOLDER}(이하 "운영자")가 제공하는 Dada Tracker(이하 "서비스")의 이용 조건과 절차, 이용자와 운영자의 권리·의무를 정하는 것을 목적으로 합니다.`,
+        `이 약관은 ${OPERATOR_NAME}(이하 "운영자")가 제공하는 Dada Tracker(이하 "서비스")의 이용 조건과 절차, 이용자와 운영자의 권리·의무를 정하는 것을 목적으로 합니다.`,
       ],
     },
     {
@@ -79,7 +82,10 @@ export const TERMS: LegalDocument = {
     },
     {
       heading: '제8조 (문의)',
-      paragraphs: [`서비스에 관한 문의는 ${CONTACT_PLACEHOLDER}로 보내주시기 바랍니다.`],
+      paragraphs: [
+        `운영자: ${OPERATOR_NAME}`,
+        `서비스에 관한 문의는 ${CONTACT_EMAIL}로 보내주시기 바랍니다.`,
+      ],
     },
   ],
 }
@@ -87,7 +93,7 @@ export const TERMS: LegalDocument = {
 export const PRIVACY: LegalDocument = {
   id: 'privacy',
   title: '개인정보처리방침',
-  version: '2026-08-01',
+  version: '2026-09-02',
   sections: [
     {
       heading: '1. 수집하는 항목',
@@ -143,7 +149,8 @@ export const PRIVACY: LegalDocument = {
     {
       heading: '8. 개인정보 보호책임자',
       paragraphs: [
-        `문의 및 권리 행사는 ${CONTACT_PLACEHOLDER}로 접수해주시기 바랍니다.`,
+        `개인정보 보호책임자: ${OPERATOR_NAME} (${CONTACT_EMAIL})`,
+        `문의 및 권리 행사는 ${CONTACT_EMAIL}로 접수해주시기 바랍니다.`,
         '개인정보 침해에 관한 상담이 필요하시면 개인정보침해신고센터(privacy.kisa.or.kr, 국번없이 118)에 문의하실 수 있습니다.',
       ],
     },
