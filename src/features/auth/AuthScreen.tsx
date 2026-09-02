@@ -101,7 +101,7 @@ export function AuthScreen({
             onClick={onBack}
             style={{ marginBottom: 8 }}
           >
-            <Icon name="chevronLeft" size={16} /> 소개 화면으로
+            <Icon name="chevronLeft" size={16} /> 돌아가기
           </button>
         )}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>

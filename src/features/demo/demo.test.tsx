@@ -32,6 +32,7 @@ vi.mock('@/lib/firebase', () => ({
   removeAccount: vi.fn(),
   authErrorMessage: (e: unknown) => String(e),
 }))
+
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
@@ -92,7 +93,6 @@ describe('예시 데이터', () => {
   })
 
   it('인사이트 카드가 실제로 만들어질 만큼의 신호가 있습니다', () => {
-    // 미리보기에서 '표본이 부족합니다'만 보이면 보여줄 것이 없습니다.
     const phaseIndex = buildPhaseIndex(demo.cycles, demo.entries[0]!.date, today, { today })
     const cards = buildInsights({
       entries: demo.entries,
@@ -112,46 +112,48 @@ describe('예시 데이터', () => {
   })
 })
 
-describe('첫 화면', () => {
-  it('로그인 폼이 아니라 소개 화면이 먼저 나옵니다', async () => {
+describe('로그인 전 첫 화면', () => {
+  it('소개 페이지가 아니라 진짜 대시보드가 바로 뜹니다', async () => {
     renderApp()
-    expect(
-      await screen.findByRole('heading', { name: /기분·에너지·수면·생리주기를/ }),
-    ).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '대시보드' })).toBeTruthy()
+    // 로그인 폼도, 마케팅 문구도 없습니다.
     expect(screen.queryByLabelText('이메일')).toBeNull()
+    expect(screen.queryByText('실제 화면입니다')).toBeNull()
+    expect(screen.queryByText('무료로 시작하기')).toBeNull()
   })
 
-  it('예시 데이터를 넣은 실제 대시보드를 보여줍니다', async () => {
+  it('예시 데이터로 계산한 실제 통계와 차트를 보여줍니다', async () => {
     renderApp()
-    await screen.findByRole('heading', { name: '실제 화면입니다' })
-    // 스크린샷이 아니라 진짜 Dashboard 컴포넌트가 렌더링되어야 합니다.
-    expect(screen.getByRole('heading', { name: '대시보드' })).toBeTruthy()
+    await screen.findByRole('heading', { name: '대시보드' })
     expect(screen.getByRole('img')).toBeTruthy() // 추세 차트
+    expect(screen.getByText('평균 기분')).toBeTruthy()
+    expect(screen.getByRole('group', { name: '표시 구간' })).toBeTruthy()
   })
 
-  it('인사이트 탭으로 바꾸면 인사이트 화면이 나옵니다', async () => {
+  it('하단 내비로 다른 화면도 둘러볼 수 있습니다', async () => {
     const user = userEvent.setup()
     renderApp()
-    const tablist = await screen.findByRole('tablist', { name: '화면 미리보기' })
-    await user.click(within(tablist).getByRole('tab', { name: '인사이트' }))
+    await screen.findByRole('heading', { name: '대시보드' })
+
+    const nav = screen.getByRole('navigation', { name: '주요 메뉴' })
+    await user.click(within(nav).getByRole('button', { name: '인사이트' }))
     expect(await screen.findByRole('heading', { name: '인사이트' })).toBeTruthy()
+
+    await user.click(within(nav).getByRole('button', { name: '태그' }))
+    expect(await screen.findByRole('heading', { name: '태그' })).toBeTruthy()
   })
 
-  it('예시 화면에서는 저장되지 않는다고 알립니다', async () => {
-    const user = userEvent.setup()
+  it('예시 데이터라는 사실을 얇은 줄로 알립니다', async () => {
     renderApp()
-    await screen.findByRole('heading', { name: '실제 화면입니다' })
-    await user.click(screen.getByRole('button', { name: '기록' }))
-    expect(await screen.findByText(/예시 화면입니다/)).toBeTruthy()
+    expect(await screen.findByText('예시 데이터를 보고 있습니다')).toBeTruthy()
   })
 })
 
 describe('로그인·회원가입 진입', () => {
-  it('무료로 시작하기를 누르면 회원가입 화면이 나옵니다', async () => {
+  it('시작하기를 누르면 회원가입 화면이 나옵니다', async () => {
     const user = userEvent.setup()
     renderApp()
-    const buttons = await screen.findAllByRole('button', { name: '무료로 시작하기' })
-    await user.click(buttons[0] as HTMLElement)
+    await user.click(await screen.findByRole('button', { name: '시작하기' }))
 
     expect(await screen.findByRole('heading', { name: '계정 만들기' })).toBeTruthy()
     expect(screen.getByLabelText('비밀번호 확인')).toBeTruthy()
@@ -165,20 +167,21 @@ describe('로그인·회원가입 진입', () => {
     expect(screen.queryByLabelText('비밀번호 확인')).toBeNull()
   })
 
-  it('인증 화면에서 소개 화면으로 돌아올 수 있습니다', async () => {
+  it('기록하려고 하면 가입 화면으로 넘깁니다', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    await screen.findByRole('heading', { name: '대시보드' })
+    await user.click(screen.getByRole('button', { name: '기록' }))
+    expect(await screen.findByRole('heading', { name: '계정 만들기' })).toBeTruthy()
+  })
+
+  it('인증 화면에서 앱 화면으로 돌아올 수 있습니다', async () => {
     const user = userEvent.setup()
     renderApp()
     await user.click(await screen.findByRole('button', { name: '로그인' }))
     await screen.findByRole('heading', { name: '로그인' })
 
-    await user.click(screen.getByRole('button', { name: /소개 화면으로/ }))
-    expect(await screen.findByRole('heading', { name: '실제 화면입니다' })).toBeTruthy()
-  })
-
-  it('소개 화면에서 약관을 읽을 수 있습니다', async () => {
-    const user = userEvent.setup()
-    renderApp()
-    await user.click(await screen.findByRole('button', { name: '이용약관' }))
-    expect(await screen.findByRole('dialog', { name: '이용약관' })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: /돌아가기/ }))
+    expect(await screen.findByRole('heading', { name: '대시보드' })).toBeTruthy()
   })
 })

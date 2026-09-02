@@ -101,7 +101,7 @@ interface AppState {
  * 화면 컴포넌트가 읽는 유일한 상태 통로입니다.
  *
  * 로그인 전 랜딩 화면에서 실제 대시보드·인사이트를 예시 데이터로 그대로
- * 보여주기 위해, 인증에 묶이지 않은 값 주입도 허용합니다(features/landing).
+ * 보여주기 위해, 인증에 묶이지 않은 값 주입도 허용합니다(features/demo).
  */
 const AppContext = createContext<AppState | null>(null)
 
