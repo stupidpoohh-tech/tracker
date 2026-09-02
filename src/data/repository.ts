@@ -4,6 +4,7 @@ import type {
   Entry,
   EntryMap,
   ExportBundle,
+  Observation,
   Tag,
   TagCategory,
   UserProfile,
@@ -80,6 +81,15 @@ export interface TrackerRepository {
   saveCycle(uid: string, record: CycleRecord): Promise<void>
   createCycle(uid: string, startDate: DateKey, endDate: DateKey | null): Promise<CycleRecord>
   deleteCycle(uid: string, id: string): Promise<void>
+
+  // 관찰 — 사용자가 계속 지켜보기로 한 관계
+  watchObservations(
+    uid: string,
+    onChange: (observations: Observation[]) => void,
+    onError: (error: unknown) => void,
+  ): Unsubscribe
+  addObservation(uid: string, patternId: string, label: string, startedOn: string): Promise<Observation>
+  removeObservation(uid: string, id: string): Promise<void>
 
   // 전체 데이터
   exportAll(uid: string): Promise<ExportBundle>

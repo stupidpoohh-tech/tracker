@@ -149,6 +149,28 @@ export interface CycleRecord {
   updatedAt?: number
 }
 
+// ─── 관찰 ─────────────────────────────────────────────────────────────────────
+/**
+ * 사용자가 "계속 지켜보겠다"고 지정한 관계.
+ *
+ * 패턴 자체는 기록에서 매번 다시 계산하므로 저장하지 않습니다. 저장이 꼭
+ * 필요한 것은 **사용자의 의도**뿐입니다 — 무엇을 언제부터 지켜보기로 했는지.
+ * 그래서 이 컬렉션만 새로 추가하고 기존 데이터는 건드리지 않습니다.
+ */
+export interface Observation {
+  id: string
+  /** domain/patterns.ts가 만드는 결정적 패턴 id. */
+  patternId: string
+  /** 목록에서 보여줄 이름. 패턴을 다시 계산하지 못해도 무엇이었는지 남습니다. */
+  label: string
+  /** 관찰을 시작한 날. 경과 일수를 세는 기준입니다. */
+  startedOn: DateKey
+  createdAt?: number
+  updatedAt?: number
+}
+
+export const observationSchemaFields = ['patternId', 'label', 'startedOn'] as const
+
 // ─── 사용자 프로필 ────────────────────────────────────────────────────────────
 export interface TrackedModules {
   mood: boolean
@@ -243,6 +265,15 @@ export const tagCategorySchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(40),
   order: z.number().default(0),
+  createdAt: z.number().optional(),
+  updatedAt: z.number().optional(),
+})
+
+export const observationSchema = z.object({
+  id: z.string().min(1),
+  patternId: z.string().min(1).max(200),
+  label: z.string().min(1).max(200),
+  startedOn: dateKeySchema,
   createdAt: z.number().optional(),
   updatedAt: z.number().optional(),
 })

@@ -10,9 +10,23 @@
 
 import type { DateKey } from '@/domain/date'
 import { addDays, weekdayIndex } from '@/domain/date'
-import type { CycleRecord, Entry, Scale, SleepQuality, Tag, TagCategory } from '@/domain/models'
+import type {
+  CycleRecord,
+  Entry,
+  Observation,
+  Scale,
+  SleepQuality,
+  Tag,
+  TagCategory,
+} from '@/domain/models'
 
-const DEMO_DAYS = 100
+/**
+ * 최근 창(60일)과 직전 창(60일)이 모두 채워져야 '변화한 패턴'이 나옵니다.
+ * 이 서비스가 보여주려는 것이 시간에 따른 변화이므로, 예시 데이터도 두 창을
+ * 덮을 만큼 길어야 합니다. 100일이면 직전 창이 40일밖에 안 되어 대부분의
+ * 관계가 '비교할 과거가 없음'으로 남습니다.
+ */
+const DEMO_DAYS = 160
 /** 마지막 생리 시작을 오늘로부터 며칠 전으로 둘지. 주기 중반이 보이도록 잡았습니다. */
 const LAST_PERIOD_OFFSET = 19
 const CYCLE_LENGTH = 28
@@ -67,16 +81,48 @@ export interface DemoData {
   cycles: CycleRecord[]
   tags: Tag[]
   categories: TagCategory[]
+  observations: Observation[]
 }
 
-/** 오늘 기준으로 최근 100일치 예시 기록을 만듭니다. */
+/**
+ * 예시 관찰.
+ *
+ * 신규 방문자가 '관찰' 개념까지 경험해야 이 서비스가 무엇인지 이해합니다.
+ * patternId는 domain/patterns.ts가 만드는 결정적 id와 같은 규칙을 씁니다.
+ */
+function demoObservations(today: DateKey): Observation[] {
+  return [
+    {
+      id: 'demo-obs-sleep-mood',
+      patternId: 'sleep-mood',
+      label: '수면 ↔ 기분',
+      startedOn: addDays(today, -24),
+    },
+    {
+      // 변화가 잡힌 패턴은 일부러 관찰로 잡지 않습니다. 관찰 중인 패턴은
+      // '변화하고 있음' 섹션에 중복해 넣지 않으므로, 둘 다 비어 보이게 됩니다.
+      id: 'demo-obs-weekday-mood',
+      patternId: 'weekday-mood',
+      label: '요일 ↔ 기분',
+      startedOn: addDays(today, -11),
+    },
+  ]
+}
+
+/**
+ * 오늘 기준 최근 160일치 예시 기록을 만듭니다.
+ *
+ * 관계의 세기를 기간 내내 고정하지 않습니다. 실제 사람의 데이터가 그렇듯
+ * 어떤 관계는 최근에 더 뚜렷해지고, 어떤 관계는 예전에만 보이다 사라집니다.
+ * 이 시간축이 있어야 '변화한 패턴'과 '새로 발견됨'이 계산 결과로 나옵니다.
+ */
 export function buildDemoData(today: DateKey): DemoData {
   const rng = seeded(20260901)
 
   // ── 생리 기록: 오늘에서 거슬러 올라가며 28일 간격 ──────────────────────
   const cycles: CycleRecord[] = []
   const cycleStarts: DateKey[] = []
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 8; i++) {
     const start = addDays(today, -(LAST_PERIOD_OFFSET + i * CYCLE_LENGTH))
     if (start < addDays(today, -(DEMO_DAYS + 10))) break
     cycleStarts.push(start)
@@ -118,12 +164,17 @@ export function buildDemoData(today: DateKey): DemoData {
     const isPremenstrual = untilNext != null && untilNext >= 1 && untilNext <= 5
     const isPeriod = inPeriod(date)
     const isWeekend = weekdayIndex(date) === 0 || weekdayIndex(date) === 6
+    /** 0이면 기간의 시작, 1이면 오늘. 관계의 세기를 시간에 따라 움직입니다. */
+    const recency = i / (DEMO_DAYS - 1)
 
     // 수면 — 이 앱이 보여주려는 관계의 출발점입니다.
+    // 최근으로 올수록 수면의 영향이 커집니다 → '더 뚜렷해짐'으로 잡힙니다.
     const sleepRoll = rng()
     const sleep: SleepQuality =
       sleepRoll < 0.5 ? 'good' : sleepRoll < 0.82 ? 'little' : 'too_much'
-    const sleepEffect = sleep === 'good' ? 0.9 : sleep === 'little' ? -1.0 : -0.3
+    const sleepGain = 0.55 + recency * 0.8
+    const sleepEffect =
+      (sleep === 'good' ? 0.9 : sleep === 'little' ? -1.0 : -0.3) * sleepGain
     const sleepHours = sleep === 'good' ? 7 + rng() : sleep === 'little' ? 4 + rng() * 1.5 : 9.5 + rng()
 
     let mood = 3.1 + sleepEffect
@@ -148,11 +199,13 @@ export function buildDemoData(today: DateKey): DemoData {
       if (rng() < p) tagIds.push(id)
     }
     pick('demo-irritable', isPremenstrual ? 0.75 : 0.1)
-    pick('demo-headache', isPremenstrual ? 0.45 : 0.09)
+    // 생리전 두통은 최근 몇 달에만 몰립니다 → '새로 발견됨'.
+    pick('demo-headache', isPremenstrual ? 0.1 + recency * 0.5 : 0.09)
     pick('demo-anxious', isPremenstrual ? 0.4 : 0.16)
     pick('demo-cramps', isPeriod ? 0.7 : 0.01)
     pick('demo-fatigue', sleep === 'little' ? 0.6 : 0.14)
-    pick('demo-focus', sleep === 'little' ? 0.5 : 0.12)
+    // 반대로 수면과 집중력의 관계는 예전에 뚜렷했다가 옅어집니다 → '최근에는 보이지 않음'.
+    pick('demo-focus', sleep === 'little' ? 0.62 - recency * 0.45 : 0.12)
     pick('demo-fog', sleep === 'little' ? 0.35 : 0.08)
     pick('demo-happy', sleep === 'good' && !isPremenstrual ? 0.45 : 0.08)
     pick('demo-grateful', sleep === 'good' ? 0.25 : 0.06)
@@ -170,5 +223,11 @@ export function buildDemoData(today: DateKey): DemoData {
     entries.push(entry)
   }
 
-  return { entries, cycles, tags: DEMO_TAGS, categories: DEMO_CATEGORIES }
+  return {
+    entries,
+    cycles,
+    tags: DEMO_TAGS,
+    categories: DEMO_CATEGORIES,
+    observations: demoObservations(today),
+  }
 }

@@ -19,6 +19,7 @@ import { ConfirmSheet, SettingGroup, SettingRow, Sheet, Spinner, Toggle, useToas
 import { LegalSheet } from '@/features/legal/LegalSheet'
 import { MEDICAL_DISCLAIMER, PRIVACY, TERMS, type LegalDocument } from '@/features/legal/content'
 import { CycleManager } from '@/features/cycle/CycleManager'
+import { TagsScreen } from '@/features/tags/TagsScreen'
 
 const MODULE_META: { key: keyof TrackedModules; icon: IconName; label: string; detail: string }[] = [
   { key: 'mood', icon: 'heart', label: '기분', detail: '1~5 척도' },
@@ -39,6 +40,7 @@ type Dialog =
   | { kind: 'deleteEntries' }
   | { kind: 'deleteAccount' }
   | { kind: 'cycles' }
+  | { kind: 'tags' }
 
 export function SettingsScreen() {
   const { user, profile, entries, tagIndex, cycles, today, actions } = useApp()
@@ -145,6 +147,10 @@ export function SettingsScreen() {
 
   const tagCount = tagIndex.tags.filter((t) => !t.archived).length
 
+  if (dialog.kind === 'tags') {
+    return <TagsScreen onBack={() => setDialog({ kind: 'none' })} />
+  }
+
   return (
     <div className="page">
       <header className="page-header">
@@ -198,6 +204,15 @@ export function SettingsScreen() {
           </div>
         ))}
       </div>
+
+      <SettingGroup title="관찰 항목">
+        <SettingRow
+          icon="tag"
+          label="관찰 항목 관리"
+          sub={`${tagCount}개 · 기분·수면·주기와의 관계를 살펴볼 항목입니다`}
+          onClick={() => setDialog({ kind: 'tags' })}
+        />
+      </SettingGroup>
 
       <SettingGroup title="기록 항목">
         {MODULE_META.map((meta) => (

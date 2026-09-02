@@ -23,6 +23,7 @@ import {
   type Entry,
   type EntryMap,
   type ExportBundle,
+  type Observation,
   type Tag,
   type TagCategory,
   type TagIndex,
@@ -69,6 +70,9 @@ interface AppActions {
   deleteCategory: (id: string, moveTagsTo: string | null) => Promise<void>
   installPreset: (presetId: string) => Promise<number>
 
+  observePattern: (patternId: string, label: string) => Promise<void>
+  stopObserving: (id: string) => Promise<void>
+
   createCycle: (startDate: DateKey, endDate: DateKey | null) => Promise<void>
   saveCycle: (record: CycleRecord) => Promise<void>
   deleteCycle: (id: string) => Promise<void>
@@ -87,6 +91,8 @@ interface AppState {
   entries: EntryMap
   tagIndex: TagIndex
   cycles: CycleRecord[]
+  /** 사용자가 계속 지켜보기로 한 관계. */
+  observations: Observation[]
   /** Firestore가 캐시에서만 응답 중 — 서버와 끊긴 상태입니다. */
   offline: boolean
   syncing: boolean
@@ -126,6 +132,7 @@ export function AppProvider({
   const [categories, setCategories] = useState<TagCategory[]>([])
   const [tags, setTags] = useState<Tag[]>([])
   const [cycles, setCycles] = useState<CycleRecord[]>([])
+  const [observations, setObservations] = useState<Observation[]>([])
   const [offline, setOffline] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [migrating, setMigrating] = useState(false)
@@ -180,6 +187,7 @@ export function AppProvider({
         setCategories([])
         setTags([])
         setCycles([])
+        setObservations([])
         setStatus('anonymous')
         return
       }
@@ -237,6 +245,7 @@ export function AppProvider({
               onSyncError,
             ),
             repository.watchCycles(nextUser.uid, setCycles, onSyncError),
+            repository.watchObservations(nextUser.uid, setObservations, onSyncError),
           )
         } catch (error) {
           console.error('[dada] 초기화 실패', error)
@@ -387,6 +396,17 @@ export function AppProvider({
         return guard(() => repository.installPreset(requireUid(), presetId), '태그 세트 추가에 실패했습니다')
       },
 
+      async observePattern(patternId, label) {
+        await guard(
+          () => repository.addObservation(requireUid(), patternId, label, todayKey()),
+          '관찰 시작에 실패했습니다',
+        )
+        toast.success('이 관계를 계속 지켜봅니다.')
+      },
+      async stopObserving(id) {
+        await guard(() => repository.removeObservation(requireUid(), id), '관찰 해제에 실패했습니다')
+      },
+
       async createCycle(startDate, endDate) {
         await guard(() => repository.createCycle(requireUid(), startDate, endDate), '생리 기록 저장에 실패했습니다')
       },
@@ -433,6 +453,7 @@ export function AppProvider({
       entries,
       tagIndex,
       cycles,
+      observations,
       offline,
       syncing,
       migrating,
@@ -447,6 +468,7 @@ export function AppProvider({
       entries,
       tagIndex,
       cycles,
+      observations,
       offline,
       syncing,
       migrating,

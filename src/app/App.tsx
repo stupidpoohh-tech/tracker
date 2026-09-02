@@ -7,18 +7,26 @@ import { Spinner } from '@/ui/components'
 import { AuthScreen } from '@/features/auth/AuthScreen'
 import { DemoAppProvider } from '@/features/demo/DemoAppProvider'
 import { Onboarding } from '@/features/onboarding/Onboarding'
-import { Dashboard } from '@/features/dashboard/Dashboard'
-import { InsightsScreen } from '@/features/insights/InsightsScreen'
+import { TodayScreen } from '@/features/today/TodayScreen'
+import { PatternsScreen } from '@/features/patterns/PatternsScreen'
+import { PatternDetailScreen } from '@/features/patterns/PatternDetailScreen'
+import { HistoryScreen } from '@/features/history/HistoryScreen'
 import { LogScreen } from '@/features/log/LogScreen'
-import { TagsScreen } from '@/features/tags/TagsScreen'
 import { SettingsScreen } from '@/features/settings/SettingsScreen'
 
-type Tab = 'dashboard' | 'insights' | 'tags' | 'settings'
+/*
+ * 정보 구조.
+ *
+ * 기록이 목적이 아니라 패턴 발견이 목적이므로, 홈은 '오늘'이고 그 다음이
+ * '패턴'입니다. 태그는 더 이상 주 내비게이션이 아니며 설정 아래 '관찰 항목'
+ * 으로 들어갑니다 — 사용자가 매일 들를 화면이 아니기 때문입니다.
+ */
+type Tab = 'today' | 'patterns' | 'history' | 'settings'
 
 const TABS: { id: Tab; label: string; icon: IconName }[] = [
-  { id: 'dashboard', label: '대시보드', icon: 'activity' },
-  { id: 'insights', label: '인사이트', icon: 'barChart' },
-  { id: 'tags', label: '태그', icon: 'tag' },
+  { id: 'today', label: '오늘', icon: 'sun' },
+  { id: 'patterns', label: '패턴', icon: 'sparkles' },
+  { id: 'history', label: '기록', icon: 'calendar' },
   { id: 'settings', label: '설정', icon: 'settings' },
 ]
 
@@ -47,17 +55,25 @@ function NavBar({ tab, onChange }: { tab: Tab; onChange: (next: Tab) => void }) 
 function AppShell({
   tab,
   onTabChange,
-  onEdit,
+  onOpenLog,
+  onOpenPattern,
 }: {
   tab: Tab
   onTabChange: (next: Tab) => void
-  onEdit: (date: DateKey) => void
+  onOpenLog: (date: DateKey) => void
+  onOpenPattern: (id: string) => void
 }) {
   return (
     <>
-      {tab === 'dashboard' && <Dashboard onEdit={onEdit} />}
-      {tab === 'insights' && <InsightsScreen />}
-      {tab === 'tags' && <TagsScreen />}
+      {tab === 'today' && (
+        <TodayScreen
+          onOpenLog={onOpenLog}
+          onOpenPattern={onOpenPattern}
+          onGoPatterns={() => onTabChange('patterns')}
+        />
+      )}
+      {tab === 'patterns' && <PatternsScreen onOpenPattern={onOpenPattern} />}
+      {tab === 'history' && <HistoryScreen onOpenLog={onOpenLog} />}
       {tab === 'settings' && <SettingsScreen />}
       <NavBar tab={tab} onChange={onTabChange} />
     </>
@@ -69,7 +85,7 @@ function DemoBar({ onSignIn, onSignUp }: { onSignIn: () => void; onSignUp: () =>
   return (
     <div className="demo-bar no-print">
       <div className="demo-bar-inner">
-        <span className="demo-bar-note">예시 데이터를 보고 있습니다</span>
+        <span className="demo-bar-note">예시 데이터로 둘러보는 중입니다</span>
         <span className="demo-bar-actions">
           <button type="button" className="btn btn-ghost btn-sm" onClick={onSignIn}>
             로그인
@@ -131,8 +147,10 @@ function FullScreenMessage({ message, detail }: { message: string; detail?: stri
 
 export function App() {
   const { status, profile, entries, today, migrating, loadError } = useApp()
-  const [tab, setTab] = useState<Tab>('dashboard')
+  const [tab, setTab] = useState<Tab>('today')
   const [logDate, setLogDate] = useState<DateKey | null>(null)
+  /** 탭 위에 겹쳐 뜨는 상세 화면. 안드로이드 뒤로가기로도 닫힙니다. */
+  const [patternId, setPatternId] = useState<string | null>(null)
   /** null이면 앱 화면, 값이 있으면 그 모드의 인증 화면을 띄웁니다. */
   const [authMode, setAuthMode] = useState<'login' | 'signup' | null>(null)
 
@@ -155,6 +173,23 @@ export function App() {
   useEffect(() => {
     if (status === 'ready') setAuthMode(null)
   }, [status])
+
+  /*
+   * 상세 화면을 히스토리 항목으로 다뤄 기기의 뒤로가기가 통하게 합니다.
+   * 라우터 라이브러리를 들이지 않고 필요한 만큼만 씁니다.
+   */
+  useEffect(() => {
+    if (!patternId) return
+    window.history.pushState({ pattern: patternId }, '')
+    const onPop = (): void => setPatternId(null)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [patternId])
+
+  const closePattern = (): void => {
+    setPatternId(null)
+    if (window.history.state?.pattern) window.history.back()
+  }
 
   const lastLoggedDate = useMemo(() => {
     const keys = Object.keys(entries).sort()
@@ -194,7 +229,16 @@ export function App() {
     return (
       <DemoAppProvider onWriteAttempt={() => setAuthMode('signup')}>
         <DemoBar onSignIn={() => setAuthMode('login')} onSignUp={() => setAuthMode('signup')} />
-        <AppShell tab={tab} onTabChange={setTab} onEdit={() => setAuthMode('signup')} />
+        {patternId ? (
+          <PatternDetailScreen patternId={patternId} onBack={closePattern} />
+        ) : (
+          <AppShell
+            tab={tab}
+            onTabChange={setTab}
+            onOpenLog={() => setAuthMode('signup')}
+            onOpenPattern={setPatternId}
+          />
+        )}
       </DemoAppProvider>
     )
   }
@@ -206,6 +250,10 @@ export function App() {
 
   if (logDate) {
     return <LogScreen key={logDate} initialDate={logDate} onClose={() => setLogDate(null)} />
+  }
+
+  if (patternId) {
+    return <PatternDetailScreen patternId={patternId} onBack={closePattern} />
   }
 
   return (
@@ -229,7 +277,12 @@ export function App() {
           </div>
         </div>
       )}
-      <AppShell tab={tab} onTabChange={setTab} onEdit={setLogDate} />
+      <AppShell
+        tab={tab}
+        onTabChange={setTab}
+        onOpenLog={setLogDate}
+        onOpenPattern={setPatternId}
+      />
     </>
   )
 }

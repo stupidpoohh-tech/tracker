@@ -23,6 +23,7 @@ import {
   SCHEMA_VERSION,
   cycleRecordSchema,
   defaultProfile,
+  observationSchema,
   entrySchema,
   tagCategorySchema,
   tagSchema,
@@ -30,6 +31,7 @@ import {
   type Entry,
   type EntryMap,
   type ExportBundle,
+  type Observation,
   type Tag,
   type TagCategory,
   type UserProfile,
@@ -50,6 +52,8 @@ const paths = {
   category: (uid: string, id: string) => doc(db, 'users', uid, 'tagCategories', id),
   cycles: (uid: string) => collection(db, 'users', uid, 'cycles'),
   cycle: (uid: string, id: string) => doc(db, 'users', uid, 'cycles', id),
+  observations: (uid: string) => collection(db, 'users', uid, 'observations'),
+  observation: (uid: string, id: string) => doc(db, 'users', uid, 'observations', id),
 }
 
 function newId(ref: CollectionReference<DocumentData>): string {
@@ -136,6 +140,16 @@ function readCycles(snap: QuerySnapshot<DocumentData>): CycleRecord[] {
     out.push(parsed.data)
   })
   return out.sort((a, b) => a.startDate.localeCompare(b.startDate))
+}
+
+function readObservations(snap: QuerySnapshot<DocumentData>): Observation[] {
+  const out: Observation[] = []
+  snap.forEach((d) => {
+    const parsed = observationSchema.safeParse({ ...d.data(), id: d.id })
+    if (!parsed.success) return warnInvalid('observation', d.id, parsed.error.issues)
+    out.push(parsed.data)
+  })
+  return out.sort((a, b) => a.startedOn.localeCompare(b.startedOn))
 }
 
 function readProfile(uid: string, raw: DocumentData | undefined): UserProfile | null {
@@ -475,6 +489,33 @@ export const firestoreRepository: TrackerRepository = {
     await deleteDoc(paths.cycle(uid, id))
   },
 
+  /**
+   * 관찰은 새 컬렉션입니다. 기존 문서를 건드리지 않으므로 마이그레이션이
+   * 필요 없고, 되돌리려면 컬렉션만 지우면 됩니다.
+   */
+  watchObservations(uid, onChange, onError) {
+    return onSnapshot(paths.observations(uid), (snap) => onChange(readObservations(snap)), onError)
+  },
+
+  async addObservation(uid, patternId, label, startedOn) {
+    const ref = paths.observations(uid)
+    const observation: Observation = {
+      id: newId(ref),
+      patternId,
+      label,
+      startedOn,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }
+    const { id, ...rest } = observation
+    await setDoc(paths.observation(uid, id), rest)
+    return observation
+  },
+
+  async removeObservation(uid, id) {
+    await deleteDoc(paths.observation(uid, id))
+  },
+
   async exportAll(uid) {
     const [entrySnap, tagSnap, catSnap, cycleSnap] = await Promise.all([
       getDocs(paths.entries(uid)),
@@ -549,6 +590,7 @@ export const firestoreRepository: TrackerRepository = {
       deleteCollection(db, paths.tags(uid)),
       deleteCollection(db, paths.categories(uid)),
       deleteCollection(db, paths.cycles(uid)),
+      deleteCollection(db, paths.observations(uid)),
       deleteCollection(db, collection(db, 'users', uid, 'meta')),
     ])
     await deleteDoc(paths.user(uid))

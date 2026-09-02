@@ -48,7 +48,7 @@ export function Onboarding() {
       await actions.updateProfile({ modules, onboardedAt: Date.now() })
       if (presetId) {
         const added = await actions.installPreset(presetId)
-        if (added > 0) toast.success(`태그 ${added}개를 추가했습니다.`)
+        if (added > 0) toast.success(`관찰 항목 ${added}개를 추가했습니다.`)
       }
     } catch {
       // guard가 이미 토스트를 띄웁니다.
@@ -77,12 +77,14 @@ export function Onboarding() {
       {step === 0 && (
         <div className="stack-lg" style={{ animation: 'fade-in 0.25s var(--ease)' }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.35 }}>
-              기분·에너지·수면·생리주기를
-              <br />한 곳에서 봅니다
+            <h1 style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.4, letterSpacing: '-0.035em' }}>
+              시간이 지나야 보이는
+              <br />
+              나의 패턴을 발견합니다
             </h1>
-            <p style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 10, lineHeight: 1.7 }}>
-              따로 보면 안 보이던 관계가 함께 놓으면 드러납니다. 시작 전에 두 가지만 확인해주세요.
+            <p style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 12, lineHeight: 1.75 }}>
+              매일 몇 초의 기록을 쌓으면 기분·에너지·수면·주기와 내가 기록한 일들 사이에서
+              반복되는 패턴을 찾아드립니다. 시작 전에 두 가지만 확인해주세요.
             </p>
           </div>
 
@@ -130,9 +132,11 @@ export function Onboarding() {
       {step === 1 && (
         <div className="stack-lg" style={{ animation: 'fade-in 0.25s var(--ease)' }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700 }}>무엇을 기록하시겠어요?</h1>
-            <p style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 6, lineHeight: 1.7 }}>
-              고른 항목만 기록 화면에 나타납니다. 나중에 설정에서 언제든 바꿀 수 있습니다.
+            <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.03em' }}>
+              무엇을 기록하시겠어요?
+            </h1>
+            <p style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 8, lineHeight: 1.75 }}>
+              고른 항목이 패턴을 찾는 재료가 됩니다. 나중에 설정에서 언제든 바꿀 수 있습니다.
             </p>
           </div>
 
@@ -192,10 +196,12 @@ export function Onboarding() {
       {step === 2 && (
         <div className="stack-lg" style={{ animation: 'fade-in 0.25s var(--ease)' }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700 }}>태그를 어떻게 시작할까요?</h1>
-            <p style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 6, lineHeight: 1.7 }}>
-              태그는 그날 있었던 증상이나 상태를 한 번에 고르는 목록입니다. 나중에 얼마든지 추가·수정할
-              수 있습니다.
+            <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.03em' }}>
+              무엇을 관찰해볼까요?
+            </h1>
+            <p style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 8, lineHeight: 1.75 }}>
+              관찰 항목을 기록해두면 시간이 지나면서 기분·에너지·수면 등과 어떤 관계가 있는지
+              살펴봅니다. 나중에 얼마든지 추가·수정할 수 있습니다.
             </p>
           </div>
 

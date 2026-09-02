@@ -15,6 +15,7 @@ import type { CyclePhase, PhaseIndex } from './cycle'
 import { PHASE_LABELS } from './cycle'
 import type { Entry, SleepQuality, TagIndex } from './models'
 import { SLEEP_OPTIONS, isMixedState, resolveEntryTagIds, sleepLabel } from './models'
+import { subjectParticle, topicParticle } from './korean'
 
 /** 한 그룹이 이 개수 미만이면 비교하지 않습니다. */
 export const MIN_GROUP_SIZE = 5
@@ -360,7 +361,7 @@ export function buildInsights(input: InsightInput): InsightCard[] {
     cards.push({
       id: `sleep-${metric}`,
       kind: 'sleep',
-      title: `${sleepLabel(cmp.high.key as SleepQuality)} 날의 ${metricLabel}이 더 높습니다`,
+      title: `${sleepLabel(cmp.high.key as SleepQuality)} 날의 ${metricLabel}${subjectParticle(metricLabel)} 더 높습니다`,
       body:
         `${cmp.high.label} ${round1(cmp.high[metric] as number)}점(${cmp.high.count}일) vs ` +
         `${cmp.low.label} ${round1(cmp.low[metric] as number)}점(${cmp.low.count}일). ` +
@@ -383,7 +384,7 @@ export function buildInsights(input: InsightInput): InsightCard[] {
       cards.push({
         id: `phase-${metric}`,
         kind: 'cycle',
-        title: `${cmp.low.label} 구간의 ${metricLabel}이 가장 낮습니다`,
+        title: `${cmp.low.label} 구간의 ${metricLabel}${subjectParticle(metricLabel)} 가장 낮습니다`,
         body:
           `${cmp.low.label} ${round1(cmp.low[metric] as number)}점(${cmp.low.count}일), ` +
           `${cmp.high.label} ${round1(cmp.high[metric] as number)}점(${cmp.high.count}일). ` +
@@ -405,8 +406,8 @@ export function buildInsights(input: InsightInput): InsightCard[] {
       id: `taglift-${lift.phase}-${lift.tagId}`,
       kind: 'tag',
       title: onlyInPhase
-        ? `'${lift.name}'은 ${phaseLabel} 구간에서만 나타났습니다`
-        : `${phaseLabel} 구간에 '${lift.name}'이 몰립니다`,
+        ? `'${lift.name}'${topicParticle(lift.name)} ${phaseLabel} 구간에서만 나타났습니다`
+        : `${phaseLabel} 구간에 '${lift.name}'${subjectParticle(lift.name)} 몰립니다`,
       body: onlyInPhase
         ? `${phaseLabel} ${lift.phaseDays}일 중 ${lift.inPhaseCount}일(${inPercent}%)에 기록되었고, ` +
           `그 외 ${lift.outPhaseDays}일 동안은 한 번도 없었습니다.`

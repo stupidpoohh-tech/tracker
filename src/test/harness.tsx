@@ -14,6 +14,7 @@ import {
   type Entry,
   type EntryMap,
   type ExportBundle,
+  type Observation,
   type Tag,
   type TagCategory,
   type UserProfile,
@@ -28,6 +29,7 @@ export interface SeedData {
   tags?: Tag[]
   categories?: TagCategory[]
   cycles?: CycleRecord[]
+  observations?: Observation[]
   /** 기록 구독을 실패시킵니다. 로딩 화면에 갇히지 않는지 확인할 때 씁니다. */
   failEntriesWith?: { code?: string; message?: string }
 }
@@ -40,6 +42,7 @@ export interface FakeRepository extends TrackerRepository {
     tags: Tag[]
     categories: TagCategory[]
     cycles: CycleRecord[]
+    observations: Observation[]
   }
   readonly calls: string[]
 }
@@ -64,6 +67,7 @@ export function createFakeRepository(seed: SeedData = {}): FakeRepository {
     tags: [...(seed.tags ?? [])],
     categories: [...(seed.categories ?? [])],
     cycles: [...(seed.cycles ?? [])],
+    observations: [...(seed.observations ?? [])],
   }
 
   const calls: string[] = []
@@ -72,6 +76,7 @@ export function createFakeRepository(seed: SeedData = {}): FakeRepository {
     entries: new Set<(m: EntryMap, fromCache: boolean) => void>(),
     tags: new Set<(b: TagBundle) => void>(),
     cycles: new Set<(c: CycleRecord[]) => void>(),
+    observations: new Set<(o: Observation[]) => void>(),
   }
 
   const emitEntries = (): void => {
@@ -82,6 +87,9 @@ export function createFakeRepository(seed: SeedData = {}): FakeRepository {
   }
   const emitCycles = (): void => {
     for (const cb of listeners.cycles) cb([...state.cycles])
+  }
+  const emitObservations = (): void => {
+    for (const cb of listeners.observations) cb([...state.observations])
   }
   const emitProfile = (): void => {
     for (const cb of listeners.profile) cb({ ...state.profile })
@@ -224,6 +232,23 @@ export function createFakeRepository(seed: SeedData = {}): FakeRepository {
       calls.push(`deleteCycle:${id}`)
       state.cycles = state.cycles.filter((c) => c.id !== id)
       emitCycles()
+    },
+
+    watchObservations(_uid, onChange) {
+      queueMicrotask(() => onChange([...state.observations]))
+      return subscribe(listeners.observations, onChange)
+    },
+    async addObservation(_uid, patternId, label, startedOn) {
+      calls.push(`addObservation:${patternId}`)
+      const observation: Observation = { id: makeId('obs'), patternId, label, startedOn }
+      state.observations.push(observation)
+      emitObservations()
+      return observation
+    },
+    async removeObservation(_uid, id) {
+      calls.push(`removeObservation:${id}`)
+      state.observations = state.observations.filter((o) => o.id !== id)
+      emitObservations()
     },
 
     async exportAll() {

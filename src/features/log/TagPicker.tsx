@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { withParticle } from '@/domain/korean'
 import type { TagIndex } from '@/domain/models'
 import { Icon } from '@/ui/Icon'
 
@@ -120,7 +121,7 @@ export function TagPicker({
       )}
 
       {query && grouped.length === 0 && orphans.length === 0 && (
-        <p className="hint">'{query}'와 일치하는 태그가 없습니다.</p>
+        <p className="hint">'{query}'{withParticle(query)} 일치하는 태그가 없습니다.</p>
       )}
     </div>
   )

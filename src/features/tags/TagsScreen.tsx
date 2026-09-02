@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '@/app/store'
 import { fullLabel } from '@/domain/date'
+import { objectParticle } from '@/domain/korean'
 import { resolveEntryTagIds, type Tag } from '@/domain/models'
 import { TAG_PRESETS, isRiskTagName } from '@/domain/tagPresets'
 import { Icon } from '@/ui/Icon'
@@ -8,7 +9,7 @@ import { ConfirmSheet, Sheet, Spinner, useToast } from '@/ui/components'
 
 type EditTarget = { tag: Tag } | null
 
-export function TagsScreen() {
+export function TagsScreen({ onBack }: { onBack?: () => void } = {}) {
   const { entries, tagIndex, actions } = useApp()
   const toast = useToast()
 
@@ -97,9 +98,19 @@ export function TagsScreen() {
 
   return (
     <div className="page">
-      <header className="page-header">
+      {onBack && (
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={onBack}
+          style={{ paddingLeft: 0, marginTop: 16 }}
+        >
+          <Icon name="chevronLeft" size={16} /> 설정
+        </button>
+      )}
+      <header className="page-header" style={onBack ? { paddingTop: 8 } : undefined}>
         <div>
-          <h1 className="page-title">태그</h1>
+          <h1 className="page-title">관찰 항목</h1>
           <p className="page-subtitle">
             {tagIndex.tags.filter((t) => !t.archived).length}개 사용 중
             {archivedCount > 0 ? ` · 보관 ${archivedCount}개` : ''}
@@ -110,10 +121,11 @@ export function TagsScreen() {
         </button>
       </header>
 
-      <div className="notice notice-info" style={{ marginBottom: 16 }}>
-        태그를 누르면 사용한 날짜를 볼 수 있고, 연필 버튼으로 이름과 분류를 바꿉니다. 이름을 바꿔도
-        과거 기록은 그대로 따라옵니다.
-      </div>
+      <p className="hint" style={{ marginBottom: 20, lineHeight: 1.8 }}>
+        관찰할 항목을 기록해두면 시간이 지나면서 기분·에너지·수면·주기와 어떤 관계가 있는지
+        살펴봅니다. 항목을 누르면 기록한 날짜를 볼 수 있고, 연필 버튼으로 이름과 분류를 바꿉니다.
+        이름을 바꿔도 과거 기록은 그대로 따라옵니다.
+      </p>
 
       {/* 태그 사용 기록 */}
       {selectedTagId && (
@@ -155,7 +167,7 @@ export function TagsScreen() {
 
       {groups.length === 0 && (
         <p className="empty">
-          아직 태그가 없습니다.
+          아직 관찰 항목이 없습니다.
           <br />
           준비된 세트를 불러오거나 카테고리부터 만들어보세요.
         </p>
@@ -222,8 +234,8 @@ export function TagsScreen() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') void addTag(group.id)
                 }}
-                placeholder="태그 추가"
-                aria-label={`${group.name}에 태그 추가`}
+                placeholder="항목 추가"
+                aria-label={`${group.name}에 항목 추가`}
                 style={{ minHeight: 38, fontSize: 13.5 }}
               />
               <button
@@ -293,14 +305,14 @@ export function TagsScreen() {
         {archivedCount > 0 && (
           <button type="button" className="btn btn-ghost btn-block" onClick={() => setShowArchived((v) => !v)}>
             <Icon name="archive" size={15} />
-            {showArchived ? '보관된 태그 숨기기' : `보관된 태그 ${archivedCount}개 보기`}
+            {showArchived ? '보관된 항목 숨기기' : `보관된 항목 ${archivedCount}개 보기`}
           </button>
         )}
       </div>
 
       {/* 태그 편집 */}
       {editing && (
-        <Sheet title="태그 편집" onClose={() => setEditing(null)}>
+        <Sheet title="관찰 항목 편집" onClose={() => setEditing(null)}>
           <div className="stack">
             <div className="field">
               <label className="field-label" htmlFor="tag-name">
@@ -383,7 +395,7 @@ export function TagsScreen() {
 
       {confirmPurge && (
         <ConfirmSheet
-          title={`'${confirmPurge.name}'을(를) 완전히 삭제할까요?`}
+          title={`'${confirmPurge.name}'${objectParticle(confirmPurge.name)} 완전히 삭제할까요?`}
           description={`이 태그가 붙은 기록 ${usage.get(confirmPurge.id) ?? 0}건에서도 함께 제거되고, 관련 통계가 사라집니다. 되돌릴 수 없습니다.\n\n통계를 남기고 목록에서만 빼시려면 '보관하기'를 사용하세요.`}
           confirmLabel="완전 삭제"
           danger
@@ -403,7 +415,7 @@ export function TagsScreen() {
       )}
 
       {showPresets && (
-        <Sheet title="태그 세트 추가" onClose={() => setShowPresets(false)}>
+        <Sheet title="관찰 항목 세트 추가" onClose={() => setShowPresets(false)}>
           <div className="stack">
             <p className="hint">
               이미 있는 이름은 건너뜁니다. 기존 태그와 기록에는 영향을 주지 않습니다.

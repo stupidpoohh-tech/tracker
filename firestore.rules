@@ -105,6 +105,19 @@ service cloud.firestore {
                                       && request.resource.data.endDate >= request.resource.data.startDate));
       }
 
+      // ── 관찰 (사용자가 계속 지켜보기로 한 관계) ─────────────────────────
+      match /observations/{observationId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+                              && request.resource.data.patternId is string
+                              && request.resource.data.patternId.size() > 0
+                              && request.resource.data.patternId.size() <= 200
+                              && request.resource.data.label is string
+                              && request.resource.data.label.size() > 0
+                              && request.resource.data.label.size() <= 200
+                              && isDateKey(request.resource.data.startedOn);
+      }
+
       // ── 메타 (마이그레이션 상태, v3 원본 백업) ──────────────────────────
       match /meta/{docId} {
         allow read, write: if isOwner(uid);

@@ -113,39 +113,56 @@ describe('예시 데이터', () => {
 })
 
 describe('로그인 전 첫 화면', () => {
-  it('소개 페이지가 아니라 진짜 대시보드가 바로 뜹니다', async () => {
+  it('소개 페이지가 아니라 진짜 앱 화면이 바로 뜹니다', async () => {
     renderApp()
-    expect(await screen.findByRole('heading', { name: '대시보드' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '오늘' })).toBeTruthy()
     // 로그인 폼도, 마케팅 문구도 없습니다.
     expect(screen.queryByLabelText('이메일')).toBeNull()
     expect(screen.queryByText('실제 화면입니다')).toBeNull()
     expect(screen.queryByText('무료로 시작하기')).toBeNull()
   })
 
-  it('예시 데이터로 계산한 실제 통계와 차트를 보여줍니다', async () => {
+  it('예시 데이터로 계산한 실제 발견을 보여줍니다', async () => {
     renderApp()
-    await screen.findByRole('heading', { name: '대시보드' })
-    expect(screen.getByRole('img')).toBeTruthy() // 추세 차트
-    expect(screen.getByText('평균 기분')).toBeTruthy()
-    expect(screen.getByRole('group', { name: '표시 구간' })).toBeTruthy()
+    await screen.findByRole('heading', { name: '오늘' })
+    // 스크린샷이 아니라 진짜 패턴 계산 결과입니다.
+    expect(screen.getByRole('button', { name: '자세히 보기' })).toBeTruthy()
+  })
+
+  it('예시 데이터에서 관찰까지 경험할 수 있습니다', async () => {
+    renderApp()
+    await screen.findByRole('heading', { name: '오늘' })
+    expect(screen.getByRole('heading', { name: '관찰 중' })).toBeTruthy()
+    expect(screen.getByText('수면 ↔ 기분')).toBeTruthy()
   })
 
   it('하단 내비로 다른 화면도 둘러볼 수 있습니다', async () => {
     const user = userEvent.setup()
     renderApp()
-    await screen.findByRole('heading', { name: '대시보드' })
+    await screen.findByRole('heading', { name: '오늘' })
 
     const nav = screen.getByRole('navigation', { name: '주요 메뉴' })
-    await user.click(within(nav).getByRole('button', { name: '인사이트' }))
-    expect(await screen.findByRole('heading', { name: '인사이트' })).toBeTruthy()
+    await user.click(within(nav).getByRole('button', { name: '패턴' }))
+    expect(await screen.findByRole('heading', { name: '나의 패턴' })).toBeTruthy()
 
-    await user.click(within(nav).getByRole('button', { name: '태그' }))
-    expect(await screen.findByRole('heading', { name: '태그' })).toBeTruthy()
+    await user.click(within(nav).getByRole('button', { name: '기록' }))
+    expect(await screen.findByRole('heading', { name: '기록' })).toBeTruthy()
+    expect(screen.getByRole('img')).toBeTruthy() // 추세 차트
+  })
+
+  it('패턴 상세까지 들어가 볼 수 있습니다', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    await screen.findByRole('heading', { name: '오늘' })
+    await user.click(screen.getByRole('button', { name: '자세히 보기' }))
+
+    expect(await screen.findByRole('heading', { name: '데이터에서 이렇게 나타났습니다' })).toBeTruthy()
+    expect(screen.getByText(/원인과 결과를 판단할 수는 없습니다/)).toBeTruthy()
   })
 
   it('예시 데이터라는 사실을 얇은 줄로 알립니다', async () => {
     renderApp()
-    expect(await screen.findByText('예시 데이터를 보고 있습니다')).toBeTruthy()
+    expect(await screen.findByText('예시 데이터로 둘러보는 중입니다')).toBeTruthy()
   })
 })
 
@@ -170,8 +187,9 @@ describe('로그인·회원가입 진입', () => {
   it('기록하려고 하면 가입 화면으로 넘깁니다', async () => {
     const user = userEvent.setup()
     renderApp()
-    await screen.findByRole('heading', { name: '대시보드' })
-    await user.click(screen.getByRole('button', { name: '기록' }))
+    await screen.findByRole('heading', { name: '오늘' })
+    // 예시 화면에서는 저장이 되지 않고 가입으로 안내합니다.
+    await user.click(screen.getByRole('button', { name: '수정' }))
     expect(await screen.findByRole('heading', { name: '계정 만들기' })).toBeTruthy()
   })
 
@@ -182,6 +200,6 @@ describe('로그인·회원가입 진입', () => {
     await screen.findByRole('heading', { name: '로그인' })
 
     await user.click(screen.getByRole('button', { name: /돌아가기/ }))
-    expect(await screen.findByRole('heading', { name: '대시보드' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '오늘' })).toBeTruthy()
   })
 })
