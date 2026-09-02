@@ -157,6 +157,19 @@ export interface CycleRecord {
  * 필요한 것은 **사용자의 의도**뿐입니다 — 무엇을 언제부터 지켜보기로 했는지.
  * 그래서 이 컬렉션만 새로 추가하고 기존 데이터는 건드리지 않습니다.
  */
+/**
+ * 관찰 시작 시점의 효과 크기.
+ *
+ * 이것이 없으면 화면은 늘 현재 값만 보여줄 수 있어 관찰이 즐겨찾기와 같아집니다.
+ * 이전 관찰에는 없는 필드이므로 선택 항목입니다 — 없으면 비교를 생략합니다.
+ */
+export interface ObservationBaseline {
+  delta: number
+  metric: 'scale' | 'rate' | 'correlation'
+  status: 'insufficient' | 'signal' | 'stable' | 'none'
+  sampleSize: number
+}
+
 export interface Observation {
   id: string
   /** domain/patterns.ts가 만드는 결정적 패턴 id. */
@@ -165,11 +178,13 @@ export interface Observation {
   label: string
   /** 관찰을 시작한 날. 경과 일수를 세는 기준입니다. */
   startedOn: DateKey
+  /** 시작 시점의 값. 2026-09 이전에 만든 관찰에는 없습니다. */
+  baseline?: ObservationBaseline
   createdAt?: number
   updatedAt?: number
 }
 
-export const observationSchemaFields = ['patternId', 'label', 'startedOn'] as const
+export const observationSchemaFields = ['patternId', 'label', 'startedOn', 'baseline'] as const
 
 // ─── 사용자 프로필 ────────────────────────────────────────────────────────────
 export interface TrackedModules {
@@ -269,11 +284,19 @@ export const tagCategorySchema = z.object({
   updatedAt: z.number().optional(),
 })
 
+export const observationBaselineSchema = z.object({
+  delta: z.number(),
+  metric: z.enum(['scale', 'rate', 'correlation']),
+  status: z.enum(['insufficient', 'signal', 'stable', 'none']),
+  sampleSize: z.number().int().min(0),
+})
+
 export const observationSchema = z.object({
   id: z.string().min(1),
   patternId: z.string().min(1).max(200),
   label: z.string().min(1).max(200),
   startedOn: dateKeySchema,
+  baseline: observationBaselineSchema.optional(),
   createdAt: z.number().optional(),
   updatedAt: z.number().optional(),
 })

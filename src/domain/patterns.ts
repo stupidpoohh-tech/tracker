@@ -789,6 +789,101 @@ export function sectionPatterns(
   return sections
 }
 
+/**
+ * 이 패턴 id가 해당 태그를 재료로 만들어졌는지.
+ *
+ * 태그를 완전히 삭제하면 그 태그로 만들어진 패턴은 다시 계산되지 않습니다.
+ * 그 패턴을 지켜보던 관찰이 남아 있으면 사라진 대상을 관찰 중이라고 표시하게
+ * 되므로, 삭제 경로에서 이 판정으로 함께 정리합니다. id 생성 규칙과 한 파일에
+ * 두어 규칙이 바뀔 때 같이 바뀌게 합니다.
+ */
+export function patternUsesTag(patternId: string, tagId: string): boolean {
+  if (patternId === `tag-mood:${tagId}`) return true
+  return patternId.startsWith('phase-tag:') && patternId.endsWith(`:${tagId}`)
+}
+
+// ─── 관찰과의 비교 ────────────────────────────────────────────────────────────
+
+/**
+ * 관찰을 시작한 시점의 효과 크기.
+ *
+ * 관찰은 "이 관계를 계속 지켜보겠다"는 선언인데, 시작 시점을 남기지 않으면
+ * 화면은 늘 현재 값만 보여줄 수 있습니다. 그러면 관찰이 즐겨찾기와 다르지
+ * 않습니다. 시작 당시의 값을 함께 저장해야 '그 뒤로 어떻게 됐는지'를 말할 수
+ * 있습니다.
+ */
+export interface PatternBaseline {
+  delta: number
+  metric: PatternMetric
+  status: PatternStatus
+  sampleSize: number
+}
+
+export type ObservationTrend =
+  /** 관찰 이후 차이가 커졌습니다. */
+  | 'grown'
+  /** 관찰 이후 차이가 줄었습니다. */
+  | 'shrunk'
+  | 'steady'
+  /** 시작할 때는 보이지 않던 관계가 지금은 보입니다. */
+  | 'appeared'
+  /** 시작할 때 보이던 관계가 지금은 나타나지 않습니다. */
+  | 'gone'
+  /** 비교할 수 없습니다. 단정하지 않습니다. */
+  | 'unknown'
+
+export function baselineOf(pattern: Pattern): PatternBaseline {
+  return {
+    delta: pattern.delta,
+    metric: pattern.metric,
+    status: pattern.status,
+    sampleSize: pattern.sampleSize,
+  }
+}
+
+/** 지금과 관찰 시작 시점을 견줍니다. 지표가 다르면 비교하지 않습니다. */
+export function compareToBaseline(
+  pattern: Pattern,
+  baseline: PatternBaseline | undefined,
+): ObservationTrend {
+  if (!baseline || baseline.metric !== pattern.metric) return 'unknown'
+  const visible = (s: PatternStatus): boolean => s === 'signal' || s === 'stable'
+
+  if (!visible(pattern.status)) {
+    if (visible(baseline.status)) return 'gone'
+    if (pattern.status === 'none' && baseline.status === 'none') return 'steady'
+    return 'unknown'
+  }
+  if (!visible(baseline.status)) {
+    // 시작 시점에 표본이 부족했다면 그때 관계가 없었는지 알 수 없습니다.
+    return baseline.status === 'insufficient' ? 'unknown' : 'appeared'
+  }
+
+  const diff =
+    effectRatio(pattern.delta, pattern.metric) - effectRatio(baseline.delta, baseline.metric)
+  if (diff >= CHANGE_STEP) return 'grown'
+  if (diff <= -CHANGE_STEP) return 'shrunk'
+  return 'steady'
+}
+
+/** 관찰 카드에 쓸 한 문장. 비교할 수 없으면 null을 돌려 기존 문구를 씁니다. */
+export function describeObservationTrend(
+  pattern: Pattern,
+  baseline: PatternBaseline | undefined,
+): string | null {
+  const trend = compareToBaseline(pattern, baseline)
+  if (trend === 'unknown' || !baseline) return null
+
+  const then = formatMetricDelta(baseline.delta, baseline.metric)
+  const now = formatMetricDelta(pattern.delta, pattern.metric)
+
+  if (trend === 'appeared') return `관찰을 시작할 때는 뚜렷하지 않던 차이가 지금은 ${now}입니다.`
+  if (trend === 'gone') return `관찰을 시작할 때 보이던 ${then} 차이가 지금은 나타나지 않습니다.`
+  if (trend === 'grown') return `관찰을 시작할 때 ${then} 차이였고 지금은 ${now}입니다.`
+  if (trend === 'shrunk') return `관찰을 시작할 때 ${then} 차이였고 지금은 ${now}로 줄었습니다.`
+  return `관찰을 시작할 때와 비슷한 ${now} 차이입니다.`
+}
+
 // ─── 데이터 축적 단계 ─────────────────────────────────────────────────────────
 
 export type DataStage = 'empty' | 'starting' | 'early' | 'accumulating' | 'sufficient'
@@ -800,6 +895,33 @@ export interface DataReadiness {
   needed: number | null
   headline: string
   detail: string
+}
+
+/**
+ * 판단에 쓸 수 있는 기록이 며칠분인지 셉니다.
+ *
+ * 두 가지를 걸러냅니다.
+ * 1. **분석 창 밖의 기록.** 패턴은 최근 창으로만 계산하므로, 전체 기록 수로
+ *    충분도를 말하면 "충분합니다"라고 해놓고 모든 패턴이 '데이터 부족'으로
+ *    나오는 상태가 됩니다.
+ * 2. **값이 없는 문서.** 메모만 남긴 날은 기록이지만 패턴의 재료는 아닙니다.
+ */
+export function countLoggedDays(
+  entries: Readonly<Record<DateKey, Entry>>,
+  window?: { start: DateKey; end: DateKey },
+): number {
+  let count = 0
+  for (const entry of Object.values(entries)) {
+    if (window && (entry.date < window.start || entry.date > window.end)) continue
+    const hasValue =
+      entry.mood != null ||
+      entry.energy != null ||
+      entry.sleep != null ||
+      entry.tagIds.length > 0 ||
+      (entry.legacyTags?.length ?? 0) > 0
+    if (hasValue) count += 1
+  }
+  return count
 }
 
 /**
@@ -869,10 +991,14 @@ export function formatGroupValue(pattern: Pattern, group: PatternGroup): string 
   return `${group.value.toFixed(1)}점`
 }
 
+export function formatMetricDelta(delta: number, metric: PatternMetric): string {
+  if (metric === 'rate') return `${percent(Math.abs(delta))}%p`
+  if (metric === 'correlation') return Math.abs(delta).toFixed(2)
+  return `${Math.abs(delta).toFixed(1)}점`
+}
+
 export function formatDelta(pattern: Pattern): string {
-  if (pattern.metric === 'rate') return `${percent(Math.abs(pattern.delta))}%p`
-  if (pattern.metric === 'correlation') return pattern.delta.toFixed(2)
-  return `${Math.abs(pattern.delta).toFixed(1)}점`
+  return formatMetricDelta(pattern.delta, pattern.metric)
 }
 
 /** 관찰 기간을 사람이 읽는 문장으로. */

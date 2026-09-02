@@ -10,14 +10,22 @@
 
 import type { DateKey } from '@/domain/date'
 import { addDays, weekdayIndex } from '@/domain/date'
-import type {
-  CycleRecord,
-  Entry,
-  Observation,
-  Scale,
-  SleepQuality,
-  Tag,
-  TagCategory,
+import { buildPhaseIndex } from '@/domain/cycle'
+import {
+  DEFAULT_WINDOW_DAYS,
+  baselineOf,
+  buildPatterns,
+  type PatternBaseline,
+} from '@/domain/patterns'
+import {
+  buildTagIndex,
+  type CycleRecord,
+  type Entry,
+  type Observation,
+  type Scale,
+  type SleepQuality,
+  type Tag,
+  type TagCategory,
 } from '@/domain/models'
 
 /**
@@ -89,24 +97,41 @@ export interface DemoData {
  *
  * 신규 방문자가 '관찰' 개념까지 경험해야 이 서비스가 무엇인지 이해합니다.
  * patternId는 domain/patterns.ts가 만드는 결정적 id와 같은 규칙을 씁니다.
+ *
+ * baseline은 지어내지 않습니다. 관찰 시작일까지의 기록만으로 패턴을 실제로 다시
+ * 계산해서 그때의 값을 씁니다. 예시 데이터라도 화면에 나오는 숫자는 화면이 쓰는
+ * 것과 같은 계산에서 나와야 합니다.
  */
-function demoObservations(today: DateKey): Observation[] {
-  return [
-    {
-      id: 'demo-obs-sleep-mood',
-      patternId: 'sleep-mood',
-      label: '수면 ↔ 기분',
-      startedOn: addDays(today, -24),
-    },
+function demoObservations(today: DateKey, entries: Entry[], cycles: CycleRecord[]): Observation[] {
+  const tagIndex = buildTagIndex(DEMO_CATEGORIES, DEMO_TAGS)
+  const byDate = Object.fromEntries(entries.map((e) => [e.date, e]))
+
+  const baselineAt = (patternId: string, on: DateKey): PatternBaseline | undefined => {
+    const phaseIndex = buildPhaseIndex(cycles, addDays(on, -(DEFAULT_WINDOW_DAYS * 2 + 10)), on, {
+      predict: false,
+    })
+    const pattern = buildPatterns({ entries: byDate, phaseIndex, tagIndex, today: on }).find(
+      (p) => p.id === patternId,
+    )
+    return pattern ? baselineOf(pattern) : undefined
+  }
+
+  const specs = [
+    { id: 'demo-obs-sleep-mood', patternId: 'sleep-mood', label: '수면 ↔ 기분', ago: 24 },
     {
       // 변화가 잡힌 패턴은 일부러 관찰로 잡지 않습니다. 관찰 중인 패턴은
       // '변화하고 있음' 섹션에 중복해 넣지 않으므로, 둘 다 비어 보이게 됩니다.
       id: 'demo-obs-weekday-mood',
       patternId: 'weekday-mood',
       label: '요일 ↔ 기분',
-      startedOn: addDays(today, -11),
+      ago: 11,
     },
   ]
+
+  return specs.map(({ id, patternId, label, ago }) => {
+    const startedOn = addDays(today, -ago)
+    return { id, patternId, label, startedOn, baseline: baselineAt(patternId, startedOn) }
+  })
 }
 
 /**
@@ -228,6 +253,6 @@ export function buildDemoData(today: DateKey): DemoData {
     cycles,
     tags: DEMO_TAGS,
     categories: DEMO_CATEGORIES,
-    observations: demoObservations(today),
+    observations: demoObservations(today, entries, cycles),
   }
 }

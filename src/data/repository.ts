@@ -5,6 +5,7 @@ import type {
   EntryMap,
   ExportBundle,
   Observation,
+  ObservationBaseline,
   Tag,
   TagCategory,
   UserProfile,
@@ -88,7 +89,13 @@ export interface TrackerRepository {
     onChange: (observations: Observation[]) => void,
     onError: (error: unknown) => void,
   ): Unsubscribe
-  addObservation(uid: string, patternId: string, label: string, startedOn: string): Promise<Observation>
+  addObservation(
+    uid: string,
+    patternId: string,
+    label: string,
+    startedOn: string,
+    baseline?: ObservationBaseline,
+  ): Promise<Observation>
   removeObservation(uid: string, id: string): Promise<void>
 
   // 전체 데이터

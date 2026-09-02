@@ -24,6 +24,7 @@ import {
   type EntryMap,
   type ExportBundle,
   type Observation,
+  type ObservationBaseline,
   type Tag,
   type TagCategory,
   type TagIndex,
@@ -70,7 +71,7 @@ interface AppActions {
   deleteCategory: (id: string, moveTagsTo: string | null) => Promise<void>
   installPreset: (presetId: string) => Promise<number>
 
-  observePattern: (patternId: string, label: string) => Promise<void>
+  observePattern: (patternId: string, label: string, baseline?: ObservationBaseline) => Promise<void>
   stopObserving: (id: string) => Promise<void>
 
   createCycle: (startDate: DateKey, endDate: DateKey | null) => Promise<void>
@@ -396,9 +397,9 @@ export function AppProvider({
         return guard(() => repository.installPreset(requireUid(), presetId), '태그 세트 추가에 실패했습니다')
       },
 
-      async observePattern(patternId, label) {
+      async observePattern(patternId, label, baseline) {
         await guard(
-          () => repository.addObservation(requireUid(), patternId, label, todayKey()),
+          () => repository.addObservation(requireUid(), patternId, label, todayKey(), baseline),
           '관찰 시작에 실패했습니다',
         )
         toast.success('이 관계를 계속 지켜봅니다.')

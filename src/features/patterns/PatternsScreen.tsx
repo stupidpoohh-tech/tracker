@@ -93,7 +93,7 @@ export function PatternsScreen({ onOpenPattern }: { onOpenPattern: (id: string) 
           </p>
           {readiness.stage !== 'empty' && (
             <p className="meta" style={{ marginTop: 10 }}>
-              지금까지 {readiness.loggedDays}일 기록했습니다.
+              최근 {view.window.days}일 중 {readiness.loggedDays}일을 기록했습니다.
             </p>
           )}
         </section>

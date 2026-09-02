@@ -46,16 +46,21 @@ service cloud.firestore {
     }
 
     // ── 프로필 ────────────────────────────────────────────────────────────
+    // 허용 필드를 create와 update가 같이 씁니다. update만 열어두면 본인 문서에
+    // 임의 필드나 대용량 값을 넣을 수 있어, create에 제한을 건 이유가 무색해집니다.
+    function profileFieldsOk(data) {
+      return data.keys().hasOnly([
+        'uid', 'email', 'displayName', 'modules', 'theme', 'reminder',
+        'consent', 'crisisBannerDismissedAt', 'onboardedAt',
+        'createdAt', 'updatedAt', 'createdAtServer', 'appVersion',
+        'schemaVersion', 'migratedAt'
+      ]);
+    }
+
     match /users/{uid} {
       allow read: if isOwner(uid);
-      allow create: if isOwner(uid)
-                    && request.resource.data.keys().hasOnly([
-                         'uid', 'email', 'displayName', 'modules', 'theme', 'reminder',
-                         'consent', 'crisisBannerDismissedAt', 'onboardedAt',
-                         'createdAt', 'updatedAt', 'createdAtServer', 'appVersion',
-                         'schemaVersion', 'migratedAt'
-                       ]);
-      allow update: if isOwner(uid);
+      allow create: if isOwner(uid) && profileFieldsOk(request.resource.data);
+      allow update: if isOwner(uid) && profileFieldsOk(request.resource.data);
       allow delete: if isOwner(uid);
 
       // ── 일일 기록 ───────────────────────────────────────────────────────
@@ -106,16 +111,34 @@ service cloud.firestore {
       }
 
       // ── 관찰 (사용자가 계속 지켜보기로 한 관계) ─────────────────────────
+      // baseline은 관찰 시작 시점의 효과 크기입니다. 예전 관찰에는 없으므로
+      // 선택 항목으로 두되, 있으면 형태를 검사합니다.
+      function baselineOk(data) {
+        return !('baseline' in data)
+               || (data.baseline is map
+                   && data.baseline.keys().hasOnly(['delta', 'metric', 'status', 'sampleSize'])
+                   && data.baseline.delta is number
+                   && data.baseline.metric in ['scale', 'rate', 'correlation']
+                   && data.baseline.status in ['insufficient', 'signal', 'stable', 'none']
+                   && data.baseline.sampleSize is int
+                   && data.baseline.sampleSize >= 0);
+      }
+
       match /observations/{observationId} {
         allow read, delete: if isOwner(uid);
         allow create, update: if isOwner(uid)
+                              && request.resource.data.keys().hasOnly([
+                                   'patternId', 'label', 'startedOn', 'baseline',
+                                   'createdAt', 'updatedAt'
+                                 ])
                               && request.resource.data.patternId is string
                               && request.resource.data.patternId.size() > 0
                               && request.resource.data.patternId.size() <= 200
                               && request.resource.data.label is string
                               && request.resource.data.label.size() > 0
                               && request.resource.data.label.size() <= 200
-                              && isDateKey(request.resource.data.startedOn);
+                              && isDateKey(request.resource.data.startedOn)
+                              && baselineOk(request.resource.data);
       }
 
       // ── 메타 (마이그레이션 상태, v3 원본 백업) ──────────────────────────

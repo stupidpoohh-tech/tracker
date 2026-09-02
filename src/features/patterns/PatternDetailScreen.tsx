@@ -4,7 +4,13 @@ import { usePatterns } from '@/app/usePatterns'
 import { addDays } from '@/domain/date'
 import type { PhaseIndex } from '@/domain/cycle'
 import { buildPhaseIndex, computeCycleStats } from '@/domain/cycle'
-import { CHANGE_LABELS, STATUS_LABELS, formatDelta } from '@/domain/patterns'
+import {
+  CHANGE_LABELS,
+  STATUS_LABELS,
+  baselineOf,
+  describeObservationTrend,
+  formatDelta,
+} from '@/domain/patterns'
 import { Icon } from '@/ui/Icon'
 import { Spinner } from '@/ui/components'
 import { ChartLegend, TrendChart } from '@/features/history/TrendChart'
@@ -75,6 +81,9 @@ export function PatternDetailScreen({
         await actions.observePattern(
           pattern.id,
           `${pattern.variables.a.label} ↔ ${pattern.variables.b.label}`,
+          // 지금의 효과 크기를 함께 남깁니다. 이것이 있어야 나중에 '관찰 이후
+          // 어떻게 달라졌는지'를 말할 수 있습니다.
+          baselineOf(pattern),
         )
     } finally {
       setBusy(false)
@@ -209,7 +218,9 @@ export function PatternDetailScreen({
         </button>
         <p className="hint" style={{ marginTop: 10 }}>
           {observation
-            ? `${observation.startedOn}부터 지켜보고 있습니다. 평소처럼 기록하시면 이 관계가 계속 갱신됩니다.`
+            ? `${observation.startedOn}부터 지켜보고 있습니다. ` +
+              (describeObservationTrend(pattern, observation.baseline) ??
+                '평소처럼 기록하시면 이 관계가 계속 갱신됩니다.')
             : '관찰로 지정하면 홈에 남고, 기록이 쌓이는 대로 이 관계가 갱신됩니다. 따로 하실 일은 없습니다.'}
         </p>
       </section>

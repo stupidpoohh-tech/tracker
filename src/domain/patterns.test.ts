@@ -7,7 +7,12 @@ import {
   MIN_TOTAL,
   STABLE_TOTAL,
   assessReadiness,
+  baselineOf,
   buildPatterns,
+  compareToBaseline,
+  countLoggedDays,
+  describeObservationTrend,
+  patternUsesTag,
   headlinePattern,
   sectionPatterns,
   visiblePatterns,
@@ -365,5 +370,90 @@ describe('전체를 한 덩어리로 보는 지표는 그룹 크기로 막지 �
     }))
     // 계수 자체를 내지 않으므로 패턴이 아예 만들어지지 않습니다.
     expect(run(entries).find((p) => p.id === 'mood-energy')).toBeUndefined()
+  })
+})
+
+describe('관찰 — 시작 시점과 견줍니다', () => {
+  const strong = days(50, 0, (i) => ({
+    mood: (i % 2 === 0 ? 5 : 2) as Scale,
+    sleep: (i % 2 === 0 ? 'good' : 'little') as SleepQuality,
+  }))
+  const weak = days(50, 0, (i) => ({
+    mood: (i % 2 === 0 ? 4 : 3) as Scale,
+    sleep: (i % 2 === 0 ? 'good' : 'little') as SleepQuality,
+  }))
+  const find = (entries: Entry[]) =>
+    run(entries).find((p) => p.id === 'sleep-mood') as ReturnType<typeof run>[number]
+
+  it('차이가 커졌으면 커졌다고 말합니다', () => {
+    expect(compareToBaseline(find(strong), baselineOf(find(weak)))).toBe('grown')
+  })
+
+  it('차이가 줄었으면 줄었다고 말합니다', () => {
+    expect(compareToBaseline(find(weak), baselineOf(find(strong)))).toBe('shrunk')
+  })
+
+  it('비슷하면 그대로라고 말합니다', () => {
+    expect(compareToBaseline(find(strong), baselineOf(find(strong)))).toBe('steady')
+  })
+
+  it('시작 시점 값이 없으면 단정하지 않습니다', () => {
+    expect(compareToBaseline(find(strong), undefined)).toBe('unknown')
+    expect(describeObservationTrend(find(strong), undefined)).toBeNull()
+  })
+
+  it('시작 시점에 표본이 부족했다면 새로 생긴 관계라고 하지 않습니다', () => {
+    const thin = { delta: 0.1, metric: 'scale' as const, status: 'insufficient' as const, sampleSize: 6 }
+    expect(compareToBaseline(find(strong), thin)).toBe('unknown')
+  })
+
+  it('지표가 다르면 비교하지 않습니다', () => {
+    const other = { delta: 0.9, metric: 'rate' as const, status: 'stable' as const, sampleSize: 40 }
+    expect(compareToBaseline(find(strong), other)).toBe('unknown')
+  })
+
+  it('문구에 시작 값과 현재 값이 함께 들어갑니다', () => {
+    const text = describeObservationTrend(find(strong), baselineOf(find(weak)))
+    expect(text).toContain('1.0점')
+    expect(text).toContain('3.0점')
+  })
+})
+
+describe('패턴 id가 어떤 태그로 만들어졌는지 판정합니다', () => {
+  it('태그 기반 패턴만 그 태그를 참조합니다', () => {
+    expect(patternUsesTag('tag-mood:t-head', 't-head')).toBe(true)
+    expect(patternUsesTag('phase-tag:premenstrual:t-head', 't-head')).toBe(true)
+    expect(patternUsesTag('tag-mood:t-calm', 't-head')).toBe(false)
+    expect(patternUsesTag('sleep-mood', 't-head')).toBe(false)
+    expect(patternUsesTag('mood-energy', 't-head')).toBe(false)
+  })
+
+  it('id 일부만 겹치는 태그를 잘못 묶지 않습니다', () => {
+    expect(patternUsesTag('tag-mood:t-head2', 't-head')).toBe(false)
+    expect(patternUsesTag('phase-tag:period:xt-head', 't-head')).toBe(false)
+  })
+})
+
+describe('기록 일수 — 판단에 쓸 수 있는 것만 셉니다', () => {
+  const map = (list: Entry[]) => Object.fromEntries(list.map((e) => [e.date, e]))
+
+  it('메모만 있는 날은 패턴의 재료가 아니므로 세지 않습니다', () => {
+    const entries = map([
+      entry('2026-09-01', { mood: 3 }),
+      entry('2026-09-02', { memo: '오늘은 그냥 그랬다' }),
+    ])
+    expect(countLoggedDays(entries)).toBe(1)
+  })
+
+  it('태그만 기록한 날은 셉니다', () => {
+    expect(countLoggedDays(map([entry('2026-09-01', { tagIds: ['t-head'] })]))).toBe(1)
+  })
+
+  it('창 밖의 기록은 세지 않습니다', () => {
+    const entries = map([
+      entry('2026-01-01', { mood: 3 }),
+      entry('2026-09-01', { mood: 3 }),
+    ])
+    expect(countLoggedDays(entries, { start: '2026-08-01', end: '2026-09-02' })).toBe(1)
   })
 })

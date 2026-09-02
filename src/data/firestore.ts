@@ -36,6 +36,7 @@ import {
   type TagCategory,
   type UserProfile,
 } from '@/domain/models'
+import { patternUsesTag } from '@/domain/patterns'
 import { findPreset } from '@/domain/tagPresets'
 import type { ImportMode, ImportResult, TrackerRepository } from './repository'
 
@@ -384,7 +385,10 @@ export const firestoreRepository: TrackerRepository = {
   },
 
   async purgeTag(uid, id) {
-    const snap = await getDocs(paths.entries(uid))
+    const [snap, obsSnap] = await Promise.all([
+      getDocs(paths.entries(uid)),
+      getDocs(paths.observations(uid)),
+    ])
     const affected = snap.docs.filter((d) => {
       const raw = d.data()
       return Array.isArray(raw.tagIds) && raw.tagIds.includes(id)
@@ -396,6 +400,14 @@ export const firestoreRepository: TrackerRepository = {
         updatedAt: Date.now(),
       })
     })
+    // 이 태그로 만들어지던 패턴은 더 이상 계산되지 않습니다. 관찰만 남으면
+    // 사라진 대상을 지켜보는 중이라고 표시하게 되므로 함께 정리합니다.
+    for (const d of obsSnap.docs) {
+      const patternId = d.data().patternId
+      if (typeof patternId === 'string' && patternUsesTag(patternId, id)) {
+        ops.push((batch) => batch.delete(d.ref))
+      }
+    }
     ops.push((batch) => batch.delete(paths.tag(uid, id)))
     await runBatched(db, ops)
     return affected.length
@@ -497,18 +509,19 @@ export const firestoreRepository: TrackerRepository = {
     return onSnapshot(paths.observations(uid), (snap) => onChange(readObservations(snap)), onError)
   },
 
-  async addObservation(uid, patternId, label, startedOn) {
+  async addObservation(uid, patternId, label, startedOn, baseline) {
     const ref = paths.observations(uid)
     const observation: Observation = {
       id: newId(ref),
       patternId,
       label,
       startedOn,
+      baseline,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }
     const { id, ...rest } = observation
-    await setDoc(paths.observation(uid, id), rest)
+    await setDoc(paths.observation(uid, id), compact(rest))
     return observation
   },
 

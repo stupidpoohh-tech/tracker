@@ -261,6 +261,68 @@ describe('패턴', () => {
     expect(screen.getByText('수면 ↔ 기분')).toBeTruthy()
     expect(screen.getByText(/11일째 관찰 중입니다/)).toBeTruthy()
   })
+
+  it('관찰 시작 시점 값이 있으면 그때와 견준 문장을 보여줍니다', async () => {
+    const repo = createFakeRepository({
+      entries: seedEntries(),
+      tags,
+      categories,
+      observations: [
+        {
+          id: 'o1',
+          patternId: 'sleep-mood',
+          label: '수면 ↔ 기분',
+          startedOn: addDays(TODAY, -10),
+          baseline: { delta: 1, metric: 'scale', status: 'signal', sampleSize: 30 },
+        },
+      ],
+    })
+    renderApp(repo)
+    await findHome()
+    expect(screen.getByText(/관찰을 시작할 때 1.0점 차이였고 지금은 3.0점입니다/)).toBeTruthy()
+  })
+
+  it('관찰을 시작하면 그 시점의 효과 크기를 함께 저장합니다', async () => {
+    const user = userEvent.setup()
+    const repo = createFakeRepository({ entries: seedEntries(), tags, categories })
+    renderApp(repo)
+    await findHome()
+    await user.click(screen.getByRole('button', { name: '자세히 보기' }))
+    await user.click(await screen.findByRole('button', { name: '이 패턴 계속 관찰하기' }))
+
+    await waitFor(() => expect(repo.state.observations).toHaveLength(1))
+    expect(repo.state.observations[0]?.baseline?.metric).toBe('scale')
+    expect(repo.state.observations[0]?.baseline?.delta).toBeCloseTo(3, 5)
+  })
+
+  it('태그를 완전히 삭제하면 그 태그를 지켜보던 관찰도 함께 정리합니다', async () => {
+    const user = userEvent.setup()
+    const repo = createFakeRepository({
+      entries: seedEntries(),
+      tags,
+      categories,
+      observations: [
+        {
+          id: 'o-tag',
+          patternId: 'tag-mood:tag-irritable',
+          label: '짜증 ↔ 기분',
+          startedOn: addDays(TODAY, -10),
+        },
+        { id: 'o-keep', patternId: 'sleep-mood', label: '수면 ↔ 기분', startedOn: addDays(TODAY, -10) },
+      ],
+    })
+    renderApp(repo)
+    await findHome()
+    await goToTab(user, '설정')
+    await user.click(await screen.findByRole('button', { name: /관찰 항목/ }))
+    await user.click(await screen.findByRole('button', { name: '짜증 편집' }))
+    await user.click(await screen.findByRole('button', { name: '완전 삭제' }))
+    // 확인 시트의 확인 버튼도 같은 이름입니다. 나중에 열린 쪽을 누릅니다.
+    const confirms = await screen.findAllByRole('button', { name: '완전 삭제' })
+    await user.click(confirms[confirms.length - 1] as HTMLElement)
+
+    await waitFor(() => expect(repo.state.observations.map((o) => o.id)).toEqual(['o-keep']))
+  })
 })
 
 describe('기록 탭 — 기존 조회 기능이 유지됩니다', () => {

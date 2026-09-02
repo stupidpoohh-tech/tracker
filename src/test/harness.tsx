@@ -19,6 +19,7 @@ import {
   type TagCategory,
   type UserProfile,
 } from '@/domain/models'
+import { patternUsesTag } from '@/domain/patterns'
 
 export const TEST_UID = 'test-uid'
 export const TEST_EMAIL = 'tester@example.com'
@@ -201,8 +202,11 @@ export function createFakeRepository(seed: SeedData = {}): FakeRepository {
         state.entries[date] = { ...entry, tagIds: entry.tagIds.filter((t) => t !== id) }
       }
       state.tags = state.tags.filter((t) => t.id !== id)
+      const before = state.observations.length
+      state.observations = state.observations.filter((o) => !patternUsesTag(o.patternId, id))
       emitTags()
       emitEntries()
+      if (state.observations.length !== before) emitObservations()
       return affected
     },
     async installPreset(_uid, presetId) {
@@ -238,9 +242,9 @@ export function createFakeRepository(seed: SeedData = {}): FakeRepository {
       queueMicrotask(() => onChange([...state.observations]))
       return subscribe(listeners.observations, onChange)
     },
-    async addObservation(_uid, patternId, label, startedOn) {
+    async addObservation(_uid, patternId, label, startedOn, baseline) {
       calls.push(`addObservation:${patternId}`)
-      const observation: Observation = { id: makeId('obs'), patternId, label, startedOn }
+      const observation: Observation = { id: makeId('obs'), patternId, label, startedOn, baseline }
       state.observations.push(observation)
       emitObservations()
       return observation

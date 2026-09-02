@@ -7,6 +7,7 @@ import {
   DEFAULT_WINDOW_DAYS,
   assessReadiness,
   buildPatterns,
+  countLoggedDays,
   headlinePattern,
   sectionPatterns,
   visiblePatterns,
@@ -16,6 +17,8 @@ import {
 } from '@/domain/patterns'
 
 export interface PatternView {
+  /** 패턴을 계산한 최근 창. 충분도 문구도 이 창을 기준으로 말합니다. */
+  window: { start: string; end: string; days: number }
   all: Pattern[]
   visible: Pattern[]
   headline: Pattern | null
@@ -68,14 +71,18 @@ export function usePatterns(windowDays = DEFAULT_WINDOW_DAYS): PatternView {
 
   return useMemo(() => {
     const visible = visiblePatterns(all)
+    const window = { start: addDays(today, -(windowDays - 1)), end: today, days: windowDays }
     return {
+      window,
       all,
       visible,
       headline: headlinePattern(all),
       sections: sectionPatterns(all, observedIds),
       byId: new Map(all.map((p) => [p.id, p])),
-      readiness: assessReadiness(Object.keys(entries).length),
+      // 전체 기록 수가 아니라 분석 창 안의 기록 수로 판단합니다. 전체로 세면
+      // "충분합니다"라고 해놓고 모든 패턴이 '데이터 부족'인 화면이 나옵니다.
+      readiness: assessReadiness(countLoggedDays(entries, window)),
       observedIds,
     }
-  }, [all, observedIds, entries])
+  }, [all, observedIds, entries, today, windowDays])
 }

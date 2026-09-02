@@ -15,13 +15,42 @@ import {
   type Entry,
   type Scale,
 } from '@/domain/models'
-import { CHANGE_LABELS, STATUS_LABELS, type Pattern } from '@/domain/patterns'
+import {
+  CHANGE_LABELS,
+  STATUS_LABELS,
+  describeObservationTrend,
+  type Pattern,
+} from '@/domain/patterns'
+import type { Observation } from '@/domain/models'
 import { Icon } from '@/ui/Icon'
 import { Spinner } from '@/ui/components'
 import { PatternEvidence } from '@/features/patterns/PatternPieces'
 
 /** 홈에서 요약 비교에 쓰는 기간. */
 const SUMMARY_DAYS = 30
+
+/**
+ * 관찰 카드에 쓸 한 문장.
+ *
+ * 관찰을 시작한 시점의 값이 있으면 그때와 견줍니다. 관찰의 요점이 '지금 어떤가'가
+ * 아니라 '지켜본 뒤로 어떻게 됐는가'이기 때문입니다.
+ *
+ * 패턴을 못 찾은 경우에 이유를 지어내지 않습니다. 태그를 완전히 삭제하면 그
+ * 태그로 만들던 패턴은 영영 계산되지 않는데, 이때 '기록이 모이지 않았습니다'라고
+ * 하면 사실과 다릅니다.
+ */
+function observationBody(pattern: Pattern | null, observation: Observation): string {
+  if (!pattern) return '지금은 이 관계를 계산할 수 없습니다.'
+
+  const trend = describeObservationTrend(pattern, observation.baseline)
+  if (trend) return trend
+
+  if (pattern.status === 'insufficient') {
+    return `판단하려면 약 ${pattern.needed}일의 기록이 더 필요합니다.`
+  }
+  if (pattern.status === 'none') return '지금까지는 뚜렷한 차이가 나타나지 않았습니다.'
+  return pattern.summary
+}
 
 function ScaleRow({
   label,
@@ -256,7 +285,7 @@ export function TodayScreen({
           </p>
           {view.readiness.needed != null && view.readiness.stage !== 'empty' && (
             <p className="meta" style={{ marginTop: 10 }}>
-              지금까지 {view.readiness.loggedDays}일 기록했습니다.
+              최근 {view.window.days}일 중 {view.readiness.loggedDays}일을 기록했습니다.
             </p>
           )}
         </section>
@@ -279,13 +308,7 @@ export function TodayScreen({
                   <div className="grow" style={{ minWidth: 0 }}>
                     <p className="observation-title">{observation.label}</p>
                     <p className="observation-body">
-                      {pattern
-                        ? pattern.status === 'insufficient'
-                          ? `${days}일째 관찰 중입니다. 판단하려면 약 ${pattern.needed}일의 기록이 더 필요합니다.`
-                          : pattern.status === 'none'
-                            ? `${days}일째 관찰 중입니다. 지금까지는 뚜렷한 차이가 나타나지 않았습니다.`
-                            : `${days}일째 관찰 중입니다. ${pattern.summary}`
-                        : `${days}일째 관찰 중입니다. 아직 이 관계를 볼 만한 기록이 모이지 않았습니다.`}
+                      {`${days}일째 관찰 중입니다. ${observationBody(pattern, observation)}`}
                     </p>
                   </div>
                   {pattern && (
@@ -358,11 +381,13 @@ export function TodayScreen({
             </div>
             <div className="kpi-label">
               기록
+              {/* 이 숫자는 30일치이고 충분도는 패턴 계산 창(60일) 기준입니다.
+                  범위가 다르므로 문구에 기준을 함께 적습니다. */}
               <span style={{ display: 'block' }}>
                 {view.readiness.stage === 'sufficient'
-                  ? '패턴을 보기에 충분합니다'
+                  ? `최근 ${view.window.days}일 기준 충분합니다`
                   : view.readiness.needed != null
-                    ? `약 ${view.readiness.needed}일 더 필요`
+                    ? `패턴까지 약 ${view.readiness.needed}일 더`
                     : ''}
               </span>
             </div>

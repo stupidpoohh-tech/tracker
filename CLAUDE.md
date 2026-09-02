@@ -85,7 +85,7 @@ users/{uid}/entries/{YYYY-MM-DD}  일일 기록
 users/{uid}/tags/{tagId}          태그 (id가 안정적, 이름은 속성)
 users/{uid}/tagCategories/{catId} 태그 분류
 users/{uid}/cycles/{cycleId}      생리 시작/종료 이벤트
-users/{uid}/observations/{obsId}  사용자가 계속 지켜보기로 한 패턴 (patternId, label, startedOn)
+users/{uid}/observations/{obsId}  지켜보기로 한 패턴 (patternId, label, startedOn, baseline?)
 users/{uid}/meta/legacyV3         v3 원본 백업 (마이그레이션 시 생성)
 ```
 
@@ -221,11 +221,24 @@ ESLint의 `no-restricted-syntax` 규칙이 `.toISOString().slice(...)` 형태를
 저장합니다. 관찰 중인 패턴은 오늘 화면과 패턴 목록에서 별도 섹션으로 올라오고,
 `sectionPatterns()`에서 한 패턴은 정확히 한 섹션에만 들어갑니다.
 
+**시작 시점의 효과 크기(`baseline`)를 함께 남깁니다.** 이것이 없으면 화면은 늘
+현재 값만 보여줄 수 있어 관찰이 즐겨찾기와 다르지 않습니다. `compareToBaseline()`
+으로 "관찰을 시작할 때 1.0점 차이였고 지금은 1.5점입니다"를 만듭니다. 이전에 만든
+관찰에는 이 필드가 없으므로 선택 항목이고, 없으면 비교를 생략합니다.
+
+**태그를 완전 삭제하면 그 태그로 만들던 패턴의 관찰도 함께 지웁니다**
+(`patternUsesTag()`). 관찰만 남으면 사라진 대상을 지켜보는 중이라고 표시하게
+됩니다. 보관(archived)은 통계를 남기므로 관찰도 남깁니다.
+
 ### 콜드 스타트
 
 기록이 없을 때 그럴듯한 인사이트를 만들지 않습니다. `assessReadiness(loggedDays)`가
 **실제 기록 일수**로 단계를 정합니다(날짜 경과가 아닙니다). 단계마다 다음
 단계까지 며칠이 더 필요한지 알려주되, 정밀한 척하는 퍼센트는 만들지 않습니다.
+
+일수는 `countLoggedDays()`로 셉니다. **분석 창 안에서, 값이 있는 날만** 셉니다.
+전체 기록 수로 세면 "충분합니다"라고 해놓고 모든 패턴이 '데이터 부족'인 화면이
+나옵니다. 메모만 남긴 날은 기록이지만 패턴의 재료는 아닙니다.
 
 연속 기록일수는 히어로 지표가 아닙니다. 기록을 며칠 했는지는 패턴을 판단할 수
 있는지를 설명하는 맥락으로만 씁니다.
